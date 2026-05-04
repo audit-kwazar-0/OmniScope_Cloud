@@ -1,4 +1,4 @@
-# OpenTelemetry Collector (contrib) — локальный ingestion для OmniScope примеров
+# Reference copy — primary manifest: examples/kubernetes/otel/20-otel-configmap.yaml (AKS).
 receivers:
   otlp:
     protocols:

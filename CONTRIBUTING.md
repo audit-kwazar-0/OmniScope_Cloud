@@ -30,7 +30,7 @@ Thank you for taking the time to improve this repository. This document explains
 2. **Create a branch** from `main` with a short, descriptive name (e.g. `fix/bicep-aks-output`, `docs/readme-examples`).
 3. **Make focused changes** — one logical concern per pull request when possible.
 4. **Test what you can** locally:
-   - **Examples:** `cd examples && docker compose up --build` (see [`examples/README.md`](./examples/README.md)).
+   - **Examples:** build images, push to ACR, apply `examples/kubernetes/` (see [`examples/README.md`](./examples/README.md)).
    - **Pulumi:** `cd infra/pulumi && npm ci && npm run build`.
    - **Bicep:** `az bicep build --file infra/bicep/main.bicep` (when Azure CLI is available).
    - **Terraform:** `terraform fmt` and `terraform validate` inside the relevant module directory.
@@ -69,7 +69,7 @@ Optional body: explain *why* if the title is not enough.
 |------|---------|
 | [`doc-site/`](./doc-site/) | Architecture & workshop narrative (VitePress sources). |
 | [`infra/`](./infra/) | Parallel IaC: Bicep, Terraform, Pulumi (Azure observability baseline). |
-| [`examples/`](./examples/) | Local OpenTelemetry stack (Go services, Collector, Jaeger, Prometheus). |
+| [`examples/`](./examples/) | Go sample services + Kubernetes manifests for AKS; ACR / pipeline notes in `examples/docs/`. |
 
 When adding infrastructure, keep the three stacks conceptually aligned where it makes sense (same resource names and parameters), or document intentional differences in the PR.
 

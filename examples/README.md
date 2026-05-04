@@ -1,44 +1,95 @@
-# Примеры Observability для OmniScope Cloud
+# OmniScope examples — **AKS only** (no Docker Compose)
 
-Здесь — **локальный минимальный стенд**, вдохновлённый подходами из:
+Sample **Go** microservices and Kubernetes manifests to run on **Azure Kubernetes Service (AKS)** with **Azure Container Registry (ACR)** for your own images. OpenTelemetry **Collector** and **Jaeger** use **public** images from the manifest files (you can later mirror them to ACR if your policy requires private-only pulls).
 
-- учебного репозитория `observability-zero-to-hero` (день 7: два Go-микросервиса + OTLP + Collector — см. ваш локальный clone),
-- архитектурными идеями [`open-telemetry/opentelemetry-demo`](https://github.com/open-telemetry/opentelemetry-demo) (collector-first, единый OTLP ingestion).
+For the relationship **ACR ↔ AKS**, **build/push/deploy**, and **Azure Repos** + Azure Pipelines, see **[`docs/AKS-ACR-CICD.md`](./docs/AKS-ACR-CICD.md)**.
 
-Для продакшен-полигона OpenTelemetry используйте **официальный** репозиторий (тяжёлый, полный):
+---
+
+## Layout
+
+| Path | Purpose |
+|------|---------|
+| `services/service-a`, `services/service-b` | `Dockerfile` + Go sources for `docker build` / pipeline build. |
+| `kubernetes/` | Namespaced workloads for AKS (`omniscope` namespace). |
+| `docs/AKS-ACR-CICD.md` | ACR, AKS, CI/CD, Azure Repos. |
+| `otel-collector-config.yaml` | Optional reference copy of the collector config (source of truth in `kubernetes/otel/20-otel-configmap.yaml`). |
+
+---
+
+## Prerequisites
+
+- An AKS cluster (this repo’s Bicep can create **AKS + ACR + AcrPull** — see `infra/bicep/README.md`).
+- `kubectl` and `az` CLI; kubeconfig from `az aks get-credentials`.
+- Images **pushed** to your ACR: repositories `omniscope-service-a` and `omniscope-service-b` (tags must match manifests, e.g. `latest` or your CI tag).
+
+---
+
+## 1. Build and push images to ACR
+
+```bash
+export ACR_LOGIN_SERVER="yourregistry.azurecr.io"   # from deployment output acrLoginServer
+
+az acr login --name "${ACR_LOGIN_SERVER%%.azurecr.io}"
+
+docker build -t "${ACR_LOGIN_SERVER}/omniscope-service-a:latest" services/service-a
+docker push "${ACR_LOGIN_SERVER}/omniscope-service-a:latest"
+
+docker build -t "${ACR_LOGIN_SERVER}/omniscope-service-b:latest" services/service-b
+docker push "${ACR_LOGIN_SERVER}/omniscope-service-b:latest"
+```
+
+---
+
+## 2. Substitute registry in app manifests
+
+Manifests use the placeholder **`__ACR_LOGIN_SERVER__`** (FQDN only, e.g. `myregistry.azurecr.io`).
+
+```bash
+export ACR_LOGIN_SERVER="yourregistry.azurecr.io"
+sed "s|__ACR_LOGIN_SERVER__|${ACR_LOGIN_SERVER}|g" kubernetes/apps/service-a.yaml > /tmp/service-a.rendered.yaml
+sed "s|__ACR_LOGIN_SERVER__|${ACR_LOGIN_SERVER}|g" kubernetes/apps/service-b.yaml > /tmp/service-b.rendered.yaml
+```
+
+Or use `envsubst` if your shell has it (see `docs/AKS-ACR-CICD.md`).
+
+---
+
+## 3. Apply to AKS
+
+From the `examples` directory:
+
+```bash
+kubectl apply -f kubernetes/namespace.yaml
+kubectl apply -f kubernetes/otel/
+kubectl apply -f /tmp/service-a.rendered.yaml
+kubectl apply -f /tmp/service-b.rendered.yaml
+```
+
+**Port-forward** (no Ingress in this minimal set):
+
+```bash
+kubectl -n omniscope port-forward svc/service-a 8081:8081 &
+kubectl -n omniscope port-forward svc/service-b 8082:8082 &
+kubectl -n omniscope port-forward svc/jaeger 16686:16686 &
+```
+
+- Service A: http://localhost:8081/hello-a — chain call: http://localhost:8081/call-b  
+- Service B: http://localhost:8082/hello-b  
+- Jaeger UI: http://localhost:16686  
+
+---
+
+## 4. Optional: full OpenTelemetry demo
+
+For a complete shop demo with many languages, use the upstream project:
 
 ```bash
 git clone https://github.com/open-telemetry/opentelemetry-demo.git
-cd opentelemetry-demo
-make start
-# UI http://localhost:8080 — см. Makefile / README апстрима
 ```
 
-## Что в этом каталоге
+---
 
-| Компонент | Назначение |
-|-----------|------------|
-| `otel-collector-config.yaml` | Приём OTLP (gRPC/HTTP), batch, экспорт трейсов в Jaeger, метрик — экспорт Prometheus |
-| `prometheus.yml` | Скрапинг метрик с Collector (`:8889`) |
-| `services/service-a`, `services/service-b` | Два Go-сервиса (Gin + `otelgin` / `otelhttp`), OTLP/HTTP на Collector |
-| `docker-compose.yml` | Поднять всё одной командой |
+## Inspiration
 
-## Запуск
-
-Требования: Docker и Docker Compose v2.
-
-```bash
-cd examples
-docker compose up --build
-```
-
-- Сервис A: http://localhost:8081/hello-a — вызов B: http://localhost:8081/call-b  
-- Сервис B: http://localhost:8082/hello-b — вызов A: http://localhost:8082/call-a  
-- Jaeger UI: http://localhost:16686  
-- Prometheus UI: http://localhost:9090  
-
-Остановка: `docker compose down`.
-
-## Связка с нашим IaC в Azure
-
-Бэкенды (Jaeger/Prometheus здесь — только для **локальной** отладки). В Azure ваш целевой контур — Application Insights / Managed Prometheus / Log Analytics / OpenSearch, как описано в `doc-site/`. Компонент **OpenTelemetry Collector** остаётся тем же паттерном: приложения шлют OTLP на Collector, дальше — экспортеры под ваш облачный стек.
+Patterns align with ideas from `observability-zero-to-hero` and the collector-first approach of [`open-telemetry/opentelemetry-demo`](https://github.com/open-telemetry/opentelemetry-demo).

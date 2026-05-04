@@ -204,3 +204,5 @@ output aksName string = deployCluster ? aks.name : ''
 output aksId string = deployCluster ? aks.id : ''
 output aksFqdn string = deployCluster ? aks.properties.fqdn : ''
 output deployerIdentityId string = deployCluster ? deployerIdentity.id : ''
+@description('Kubelet managed identity object id — use for AcrPull role assignment on ACR.')
+output kubeletObjectId string = deployCluster ? aks.properties.identityProfile.kubeletidentity.objectId : ''

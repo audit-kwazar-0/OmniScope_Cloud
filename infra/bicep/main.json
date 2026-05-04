@@ -1,0 +1,784 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.42.1.51946",
+      "templateHash": "18165448223707553217"
+    }
+  },
+  "parameters": {
+    "prefix": {
+      "type": "string",
+      "metadata": {
+        "description": "Naming prefix used across resources."
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "westeurope",
+      "metadata": {
+        "description": "Azure region."
+      }
+    },
+    "alertEmail": {
+      "type": "string",
+      "metadata": {
+        "description": "Email receiver for Azure Monitor Action Group."
+      }
+    },
+    "logAnalyticsRetentionDays": {
+      "type": "int",
+      "defaultValue": 30,
+      "metadata": {
+        "description": "Log Analytics retention in days."
+      }
+    },
+    "appInsightsRetentionDays": {
+      "type": "int",
+      "defaultValue": 90,
+      "metadata": {
+        "description": "Application Insights retention in days."
+      }
+    },
+    "tags": {
+      "type": "object",
+      "defaultValue": {},
+      "metadata": {
+        "description": "Optional tags applied to resources that support tags."
+      }
+    },
+    "actionGroupShortName": {
+      "type": "string",
+      "defaultValue": "obs-pzu",
+      "metadata": {
+        "description": "Action Group short name (SMS limitation, max 12 chars)."
+      }
+    },
+    "deployAks": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "If true, deploy AKS cluster with a sample CPU stress workload in namespace loadtest."
+      }
+    },
+    "deployAcr": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "If true (and deployAks), create Azure Container Registry and grant kubelet AcrPull."
+      }
+    },
+    "acrNameOverride": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "ACR name: 5–50 characters, letters and numbers only, globally unique. Leave empty for an auto-generated name."
+      }
+    },
+    "aksSystemVmSize": {
+      "type": "string",
+      "defaultValue": "Standard_D4s_v5",
+      "metadata": {
+        "description": "AKS node pool VM size for the system pool."
+      }
+    },
+    "aksSystemNodeCount": {
+      "type": "int",
+      "defaultValue": 2,
+      "metadata": {
+        "description": "AKS system pool node count (test default)."
+      }
+    },
+    "stressCpuWorkers": {
+      "type": "int",
+      "defaultValue": 4,
+      "metadata": {
+        "description": "CPU workers for polinux/stress in loadtest deployment."
+      }
+    },
+    "loadTestDeployTag": {
+      "type": "string",
+      "defaultValue": "[utcNow()]",
+      "metadata": {
+        "description": "Force rerun of the AKS post-install kubectl deployment (any new string triggers update)."
+      }
+    }
+  },
+  "variables": {
+    "rgName": "[format('{0}-rg', parameters('prefix'))]",
+    "acrRegistryName": "[if(not(empty(parameters('acrNameOverride'))), take(replace(toLower(parameters('acrNameOverride')), '-', ''), 50), take(format('omni{0}', uniqueString(subscription().id, parameters('prefix'), variables('rgName'))), 50))]",
+    "lawName": "[format('{0}-law', parameters('prefix'))]",
+    "appInsightsName": "[format('{0}-appi', parameters('prefix'))]",
+    "actionGroupName": "[format('{0}-ag', parameters('prefix'))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Resources/resourceGroups",
+      "apiVersion": "2021-04-01",
+      "name": "[variables('rgName')]",
+      "location": "[parameters('location')]"
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('{0}-observability-base', parameters('prefix'))]",
+      "resourceGroup": "[variables('rgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          },
+          "lawName": {
+            "value": "[variables('lawName')]"
+          },
+          "logAnalyticsRetentionDays": {
+            "value": "[parameters('logAnalyticsRetentionDays')]"
+          },
+          "appInsightsName": {
+            "value": "[variables('appInsightsName')]"
+          },
+          "appInsightsRetentionDays": {
+            "value": "[parameters('appInsightsRetentionDays')]"
+          },
+          "actionGroupName": {
+            "value": "[variables('actionGroupName')]"
+          },
+          "actionGroupShortName": {
+            "value": "[parameters('actionGroupShortName')]"
+          },
+          "alertEmail": {
+            "value": "[parameters('alertEmail')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.42.1.51946",
+              "templateHash": "10444925086766058067"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Optional tags."
+              }
+            },
+            "lawName": {
+              "type": "string",
+              "metadata": {
+                "description": "Log Analytics workspace name."
+              }
+            },
+            "logAnalyticsRetentionDays": {
+              "type": "int",
+              "metadata": {
+                "description": "Log Analytics retention in days."
+              }
+            },
+            "appInsightsName": {
+              "type": "string",
+              "metadata": {
+                "description": "Application Insights component name."
+              }
+            },
+            "appInsightsRetentionDays": {
+              "type": "int",
+              "metadata": {
+                "description": "Application Insights retention in days."
+              }
+            },
+            "actionGroupName": {
+              "type": "string",
+              "metadata": {
+                "description": "Action Group name."
+              }
+            },
+            "actionGroupShortName": {
+              "type": "string",
+              "metadata": {
+                "description": "Action Group short name (max 12 chars)."
+              }
+            },
+            "alertEmail": {
+              "type": "string",
+              "metadata": {
+                "description": "Email receiver for Action Group."
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.OperationalInsights/workspaces",
+              "apiVersion": "2022-10-01",
+              "name": "[parameters('lawName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "sku": {
+                  "name": "PerGB2018"
+                },
+                "retentionInDays": "[parameters('logAnalyticsRetentionDays')]"
+              }
+            },
+            {
+              "type": "Microsoft.Insights/components",
+              "apiVersion": "2020-02-02",
+              "name": "[parameters('appInsightsName')]",
+              "location": "[parameters('location')]",
+              "kind": "web",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "Application_Type": "web",
+                "Flow_Type": "Bluefield",
+                "Request_Source": "rest",
+                "IngestionMode": "LogAnalytics",
+                "WorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('lawName'))]",
+                "RetentionInDays": "[parameters('appInsightsRetentionDays')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('lawName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Insights/actionGroups",
+              "apiVersion": "2024-10-01-preview",
+              "name": "[parameters('actionGroupName')]",
+              "location": "global",
+              "properties": {
+                "enabled": true,
+                "groupShortName": "[parameters('actionGroupShortName')]",
+                "emailReceivers": [
+                  {
+                    "name": "oncall-email",
+                    "emailAddress": "[parameters('alertEmail')]",
+                    "useCommonAlertSchema": true
+                  }
+                ]
+              }
+            }
+          ],
+          "outputs": {
+            "lawId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('lawName'))]"
+            },
+            "applicationInsightsId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Insights/components', parameters('appInsightsName'))]"
+            },
+            "actionGroupId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Insights/actionGroups', parameters('actionGroupName'))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('rgName'))]"
+      ]
+    },
+    {
+      "condition": "[and(parameters('deployAks'), parameters('deployAcr'))]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('{0}-acr-module', parameters('prefix'))]",
+      "resourceGroup": "[variables('rgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "acrName": {
+            "value": "[variables('acrRegistryName')]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.42.1.51946",
+              "templateHash": "901053840642612401"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Target resource group scope."
+              }
+            },
+            "acrName": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure Container Registry name: 5–50 alphanumeric characters, globally unique."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Optional tags."
+              }
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.ContainerRegistry/registries",
+              "apiVersion": "2023-07-01",
+              "name": "[parameters('acrName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "sku": {
+                "name": "Basic"
+              },
+              "properties": {
+                "adminUserEnabled": false,
+                "publicNetworkAccess": "Enabled"
+              }
+            }
+          ],
+          "outputs": {
+            "acrId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName'))]"
+            },
+            "acrName": {
+              "type": "string",
+              "value": "[parameters('acrName')]"
+            },
+            "loginServer": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), '2023-07-01').loginServer]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('rgName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('{0}-aks-module', parameters('prefix'))]",
+      "resourceGroup": "[variables('rgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "prefix": {
+            "value": "[parameters('prefix')]"
+          },
+          "deployCluster": {
+            "value": "[parameters('deployAks')]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          },
+          "deployCpuStress": {
+            "value": true
+          },
+          "stressCpuWorkers": {
+            "value": "[parameters('stressCpuWorkers')]"
+          },
+          "logAnalyticsWorkspaceId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgName')), 'Microsoft.Resources/deployments', format('{0}-observability-base', parameters('prefix'))), '2025-04-01').outputs.lawId.value]"
+          },
+          "systemVmSize": {
+            "value": "[parameters('aksSystemVmSize')]"
+          },
+          "systemNodeCount": {
+            "value": "[parameters('aksSystemNodeCount')]"
+          },
+          "loadTestDeployTag": {
+            "value": "[parameters('loadTestDeployTag')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.42.1.51946",
+              "templateHash": "16490361749798851609"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Target resource group scope."
+              }
+            },
+            "prefix": {
+              "type": "string",
+              "metadata": {
+                "description": "Naming prefix used across resources."
+              }
+            },
+            "deployCluster": {
+              "type": "bool",
+              "defaultValue": true,
+              "metadata": {
+                "description": "If false, skip AKS + post-install resources entirely (Observability-only deployments)."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Optional tags applied to resources that support tags."
+              }
+            },
+            "aksName": {
+              "type": "string",
+              "defaultValue": "[format('{0}-aks', parameters('prefix'))]",
+              "metadata": {
+                "description": "AKS cluster name (defaults to prefix-based name)."
+              }
+            },
+            "aksDnsPrefix": {
+              "type": "string",
+              "defaultValue": "[format('{0}-aks', parameters('prefix'))]",
+              "metadata": {
+                "description": "AKS API server DNS prefix."
+              }
+            },
+            "systemVmSize": {
+              "type": "string",
+              "defaultValue": "Standard_D4s_v5",
+              "metadata": {
+                "description": "System node pool VM size."
+              }
+            },
+            "systemNodeCount": {
+              "type": "int",
+              "defaultValue": 2,
+              "metadata": {
+                "description": "Initial system node pool count."
+              }
+            },
+            "systemOsDiskSizeGB": {
+              "type": "int",
+              "defaultValue": 100,
+              "metadata": {
+                "description": "OS disk size for system pool (GB)."
+              }
+            },
+            "deployCpuStress": {
+              "type": "bool",
+              "defaultValue": true,
+              "metadata": {
+                "description": "If true, deploy a CPU stress workload into the cluster (namespace loadtest)."
+              }
+            },
+            "stressCpuWorkers": {
+              "type": "int",
+              "defaultValue": 4,
+              "metadata": {
+                "description": "CPU workers for polinux/stress (see image docs)."
+              }
+            },
+            "loadTestDeployTag": {
+              "type": "string",
+              "defaultValue": "[utcNow()]",
+              "metadata": {
+                "description": "Force redeploy of the post-install deploymentScript (change to rerun kubectl apply)."
+              }
+            },
+            "logAnalyticsWorkspaceId": {
+              "type": "string",
+              "metadata": {
+                "description": "Log Analytics workspace resource ID for Container Insights addon (optional)."
+              }
+            }
+          },
+          "variables": {
+            "deployerName": "[format('{0}-aks-deployer-uai', parameters('prefix'))]",
+            "aksContributorRoleDefinitionId": "ed7f3fbd-7b88-4dd4-9017-9adb7ce333f8"
+          },
+          "resources": [
+            {
+              "condition": "[parameters('deployCluster')]",
+              "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+              "apiVersion": "2023-01-31",
+              "name": "[variables('deployerName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]"
+            },
+            {
+              "condition": "[parameters('deployCluster')]",
+              "type": "Microsoft.ContainerService/managedClusters",
+              "apiVersion": "2025-02-01",
+              "name": "[parameters('aksName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "identity": {
+                "type": "SystemAssigned"
+              },
+              "properties": {
+                "dnsPrefix": "[parameters('aksDnsPrefix')]",
+                "enableRBAC": true,
+                "agentPoolProfiles": [
+                  {
+                    "name": "system",
+                    "mode": "System",
+                    "count": "[parameters('systemNodeCount')]",
+                    "vmSize": "[parameters('systemVmSize')]",
+                    "osType": "Linux",
+                    "type": "VirtualMachineScaleSets",
+                    "osDiskSizeGB": "[parameters('systemOsDiskSizeGB')]"
+                  }
+                ],
+                "networkProfile": {
+                  "networkPlugin": "kubenet",
+                  "loadBalancerSku": "standard",
+                  "outboundType": "loadBalancer"
+                },
+                "addonProfiles": {
+                  "omsagent": {
+                    "enabled": true,
+                    "config": {
+                      "logAnalyticsWorkspaceResourceID": "[parameters('logAnalyticsWorkspaceId')]"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "condition": "[parameters('deployCluster')]",
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.ContainerService/managedClusters', parameters('aksName'))]",
+              "name": "[guid(resourceId('Microsoft.ContainerService/managedClusters', parameters('aksName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('deployerName')), variables('aksContributorRoleDefinitionId'))]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('aksContributorRoleDefinitionId'))]",
+                "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('deployerName')), '2023-01-31').principalId]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ContainerService/managedClusters', parameters('aksName'))]",
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('deployerName'))]"
+              ]
+            },
+            {
+              "condition": "[and(parameters('deployCluster'), parameters('deployCpuStress'))]",
+              "type": "Microsoft.Resources/deploymentScripts",
+              "apiVersion": "2023-08-01",
+              "name": "[format('{0}-aks-loadtest-deploy', parameters('prefix'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                  "[format('{0}', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('deployerName')))]": {}
+                }
+              },
+              "kind": "AzureCLI",
+              "properties": {
+                "azCliVersion": "2.66.0",
+                "retentionInterval": "PT2H",
+                "cleanupPreference": "OnSuccess",
+                "forceUpdateTag": "[parameters('loadTestDeployTag')]",
+                "environmentVariables": [
+                  {
+                    "name": "RG",
+                    "value": "[resourceGroup().name]"
+                  },
+                  {
+                    "name": "CLUSTER",
+                    "value": "[parameters('aksName')]"
+                  },
+                  {
+                    "name": "STRESS_CPU",
+                    "value": "[string(parameters('stressCpuWorkers'))]"
+                  }
+                ],
+                "scriptContent": "set -euo pipefail\n\necho \"Logging in with user-assigned managed identity...\"\naz login --identity\n\necho \"Ensuring kubectl exists...\"\nif ! command -v kubectl >/dev/null 2>&1; then\n  az aks install-cli >/dev/null\nfi\n\necho \"Fetching admin kubeconfig (non-interactive)...\"\naz aks get-credentials \\\n  --resource-group \"$RG\" \\\n  --name \"$CLUSTER\" \\\n  --admin \\\n  --overwrite-existing \\\n  --only-show-errors\n\nkubectl version --client\n\nkubectl apply -f - <<EOF\napiVersion: v1\nkind: Namespace\nmetadata:\n  name: loadtest\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: cpu-stress\n  namespace: loadtest\n  labels:\n    app: cpu-stress\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: cpu-stress\n  template:\n    metadata:\n      labels:\n        app: cpu-stress\n    spec:\n      containers:\n      - name: stress\n        image: polinux/stress\n        args:\n          - stress\n          - --cpu\n          - \"${STRESS_CPU}\"\n          - --verbose\n          - --timeout\n          - \"0\"\n        resources:\n          requests:\n            cpu: \"500m\"\n            memory: \"128Mi\"\n          limits:\n            cpu: \"2\"\n            memory: \"512Mi\"\nEOF\n\nkubectl -n loadtest rollout status deployment/cpu-stress --timeout=10m\n\necho \"Done.\"\n"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ContainerService/managedClusters', parameters('aksName'))]",
+                "[extensionResourceId(resourceId('Microsoft.ContainerService/managedClusters', parameters('aksName')), 'Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.ContainerService/managedClusters', parameters('aksName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('deployerName')), variables('aksContributorRoleDefinitionId')))]",
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('deployerName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "aksName": {
+              "type": "string",
+              "value": "[if(parameters('deployCluster'), parameters('aksName'), '')]"
+            },
+            "aksId": {
+              "type": "string",
+              "value": "[if(parameters('deployCluster'), resourceId('Microsoft.ContainerService/managedClusters', parameters('aksName')), '')]"
+            },
+            "aksFqdn": {
+              "type": "string",
+              "value": "[if(parameters('deployCluster'), reference(resourceId('Microsoft.ContainerService/managedClusters', parameters('aksName')), '2025-02-01').fqdn, '')]"
+            },
+            "deployerIdentityId": {
+              "type": "string",
+              "value": "[if(parameters('deployCluster'), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('deployerName')), '')]"
+            },
+            "kubeletObjectId": {
+              "type": "string",
+              "metadata": {
+                "description": "Kubelet managed identity object id — use for AcrPull role assignment on ACR."
+              },
+              "value": "[if(parameters('deployCluster'), reference(resourceId('Microsoft.ContainerService/managedClusters', parameters('aksName')), '2025-02-01').identityProfile.kubeletidentity.objectId, '')]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgName')), 'Microsoft.Resources/deployments', format('{0}-observability-base', parameters('prefix')))]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('rgName'))]"
+      ]
+    },
+    {
+      "condition": "[and(parameters('deployAks'), parameters('deployAcr'))]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('{0}-acr-kubelet-pull', parameters('prefix'))]",
+      "resourceGroup": "[variables('rgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "acrName": {
+            "value": "[variables('acrRegistryName')]"
+          },
+          "kubeletObjectId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgName')), 'Microsoft.Resources/deployments', format('{0}-aks-module', parameters('prefix'))), '2025-04-01').outputs.kubeletObjectId.value]"
+          },
+          "aksId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgName')), 'Microsoft.Resources/deployments', format('{0}-aks-module', parameters('prefix'))), '2025-04-01').outputs.aksId.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.42.1.51946",
+              "templateHash": "13151182916368818512"
+            }
+          },
+          "parameters": {
+            "acrName": {
+              "type": "string",
+              "metadata": {
+                "description": "Existing Azure Container Registry name in this resource group."
+              }
+            },
+            "kubeletObjectId": {
+              "type": "string",
+              "metadata": {
+                "description": "AKS kubelet identity objectId (managed identity used by nodes to pull images)."
+              }
+            },
+            "aksId": {
+              "type": "string",
+              "metadata": {
+                "description": "AKS cluster resource id (used only to stabilize role assignment name)."
+              }
+            }
+          },
+          "variables": {
+            "acrPullRoleDefinitionId": "7f951dda-4ed3-4680-a7ca-43fe172d538d"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName'))]",
+              "name": "[guid(resourceId('Microsoft.ContainerRegistry/registries', parameters('acrName')), parameters('aksId'), variables('acrPullRoleDefinitionId'))]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('acrPullRoleDefinitionId'))]",
+                "principalId": "[parameters('kubeletObjectId')]",
+                "principalType": "ServicePrincipal"
+              }
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgName')), 'Microsoft.Resources/deployments', format('{0}-acr-module', parameters('prefix')))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgName')), 'Microsoft.Resources/deployments', format('{0}-aks-module', parameters('prefix')))]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('rgName'))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "resourceGroupName": {
+      "type": "string",
+      "value": "[variables('rgName')]"
+    },
+    "logAnalyticsWorkspaceId": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgName')), 'Microsoft.Resources/deployments', format('{0}-observability-base', parameters('prefix'))), '2025-04-01').outputs.lawId.value]"
+    },
+    "applicationInsightsId": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgName')), 'Microsoft.Resources/deployments', format('{0}-observability-base', parameters('prefix'))), '2025-04-01').outputs.applicationInsightsId.value]"
+    },
+    "actionGroupId": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgName')), 'Microsoft.Resources/deployments', format('{0}-observability-base', parameters('prefix'))), '2025-04-01').outputs.actionGroupId.value]"
+    },
+    "aksName": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgName')), 'Microsoft.Resources/deployments', format('{0}-aks-module', parameters('prefix'))), '2025-04-01').outputs.aksName.value]"
+    },
+    "aksFqdn": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgName')), 'Microsoft.Resources/deployments', format('{0}-aks-module', parameters('prefix'))), '2025-04-01').outputs.aksFqdn.value]"
+    },
+    "acrName": {
+      "type": "string",
+      "value": "[if(and(parameters('deployAks'), parameters('deployAcr')), reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgName')), 'Microsoft.Resources/deployments', format('{0}-acr-module', parameters('prefix'))), '2025-04-01').outputs.acrName.value, '')]"
+    },
+    "acrLoginServer": {
+      "type": "string",
+      "value": "[if(and(parameters('deployAks'), parameters('deployAcr')), reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgName')), 'Microsoft.Resources/deployments', format('{0}-acr-module', parameters('prefix'))), '2025-04-01').outputs.loginServer.value, '')]"
+    }
+  }
+}

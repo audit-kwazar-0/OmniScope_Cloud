@@ -1,6 +1,6 @@
 # OmniScope Cloud
 
-**Azure observability reference** — architecture documentation, parallel Infrastructure-as-Code (Bicep, Terraform, Pulumi), and a **local OpenTelemetry** playground you can run with Docker Compose.
+**Azure observability reference** — architecture documentation, parallel Infrastructure-as-Code (Bicep, Terraform, Pulumi), and **sample workloads for AKS** (Go microservices + OpenTelemetry Collector + Jaeger in-cluster).
 
 ---
 
@@ -9,8 +9,8 @@
 | Area | What you get |
 |------|----------------|
 | **Architecture** | End-to-end observability design for Azure (metrics, logs, traces, Grafana, alerting, IaC narrative) in [`doc-site/`](./doc-site/). |
-| **Infrastructure** | Minimal **test** baseline: Resource Group, Log Analytics, Application Insights (linked to LAW), Action Group — plus optional **AKS** in Bicep. Three implementations: [`infra/bicep/`](./infra/bicep/), [`infra/terraform/`](./infra/terraform/), [`infra/pulumi/`](./infra/pulumi/). |
-| **Examples** | Two Go services, **OTLP → Collector → Jaeger + Prometheus** — see [`examples/`](./examples/). |
+| **Infrastructure** | Minimal **test** baseline: Resource Group, Log Analytics, Application Insights (linked to LAW), Action Group — optional **AKS**, optional **ACR** with **AcrPull** for the cluster kubelet. Implementations: [`infra/bicep/`](./infra/bicep/), [`infra/terraform/`](./infra/terraform/), [`infra/pulumi/`](./infra/pulumi/). |
+| **Examples** | Go services built as container images, pushed to **ACR**, deployed with **Kubernetes** manifests on **AKS** — see [`examples/`](./examples/) and [`examples/docs/AKS-ACR-CICD.md`](./examples/docs/AKS-ACR-CICD.md). |
 
 ---
 
@@ -19,9 +19,9 @@
 ```text
 OmniScope_Cloud/
 ├── doc-site/           # VitePress docs (config + Markdown)
-├── examples/           # Local OTel stack (docker compose)
+├── examples/           # Dockerfiles + kubernetes/ for AKS (+ ACR / CI/CD notes)
 ├── infra/
-│   ├── bicep/          # ARM/Bicep (incl. optional AKS)
+│   ├── bicep/          # ARM/Bicep (optional AKS + ACR attach)
 │   ├── pulumi/         # Pulumi (TypeScript)
 │   ├── terraform/      # Terraform (azurerm)
 │   └── README.md       # Shared parameters & extension ideas
@@ -34,23 +34,10 @@ OmniScope_Cloud/
 
 ## Quick start
 
-### Local observability examples
+### AKS + ACR (examples)
 
-Requires **Docker** and **Docker Compose v2**.
-
-```bash
-cd examples
-docker compose up --build
-```
-
-| Endpoint | URL |
-|----------|-----|
-| Service A | [http://localhost:8081](http://localhost:8081) — try `/hello-a`, `/call-b` |
-| Service B | [http://localhost:8082](http://localhost:8082) — try `/hello-b`, `/call-a` |
-| Jaeger UI | [http://localhost:16686](http://localhost:16686) |
-| Prometheus | [http://localhost:9090](http://localhost:9090) |
-
-Stop with `docker compose down`. Full details: [`examples/README.md`](./examples/README.md).
+1. Deploy baseline with Bicep (includes AKS + ACR + kubelet **AcrPull** when defaults are used).
+2. Build and push images, apply manifests — full flow: [`examples/README.md`](./examples/README.md) and [`examples/docs/AKS-ACR-CICD.md`](./examples/docs/AKS-ACR-CICD.md).
 
 ### Azure baseline (Bicep)
 
@@ -66,7 +53,7 @@ az deployment sub create \
     alertEmail="oncall@example.com"
 ```
 
-Parameter reference: [`infra/bicep/README.md`](./infra/bicep/README.md). Terraform and Pulumi equivalents live under [`infra/terraform/`](./infra/terraform/) and [`infra/pulumi/`](./infra/pulumi/); shared concepts are summarized in [`infra/README.md`](./infra/README.md).
+To deploy **AKS without** a new registry (bring your own ACR or public images only): set `deployAcr=false`. Parameter reference: [`infra/bicep/README.md`](./infra/bicep/README.md). Terraform and Pulumi equivalents live under [`infra/terraform/`](./infra/terraform/) and [`infra/pulumi/`](./infra/pulumi/); shared concepts are in [`infra/README.md`](./infra/README.md).
 
 ### Documentation site
 
@@ -78,9 +65,9 @@ Sources live under [`doc-site/`](./doc-site/) (VitePress: `.vitepress/config.ts`
 
 Suggested **repository description**:
 
-> Azure observability reference: docs (VitePress), parallel IaC (Bicep / Terraform / Pulumi), local OpenTelemetry examples (Go, Collector, Jaeger, Prometheus).
+> Azure observability reference: VitePress docs, parallel IaC (Bicep / Terraform / Pulumi), AKS + ACR sample apps with OpenTelemetry.
 
-Suggested **topics**: `azure`, `observability`, `opentelemetry`, `application-insights`, `log-analytics`, `bicep`, `terraform`, `pulumi`, `aks`, `prometheus`, `docker-compose`, `vitepress`.
+Suggested **topics**: `azure`, `observability`, `opentelemetry`, `application-insights`, `log-analytics`, `bicep`, `terraform`, `pulumi`, `aks`, `azure-container-registry`, `kubernetes`, `vitepress`.
 
 ---
 

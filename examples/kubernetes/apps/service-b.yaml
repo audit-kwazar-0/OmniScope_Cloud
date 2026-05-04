@@ -1,0 +1,44 @@
+# Replace __ACR_LOGIN_SERVER__ with your registry FQDN (acrLoginServer), e.g. myregistry.azurecr.io
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: service-b
+  namespace: omniscope
+  labels:
+    app: service-b
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: service-b
+  template:
+    metadata:
+      labels:
+        app: service-b
+    spec:
+      containers:
+        - name: service-b
+          image: __ACR_LOGIN_SERVER__/omniscope-service-b:latest
+          ports:
+            - containerPort: 8082
+          env:
+            - name: SERVICE_B_PORT
+              value: ":8082"
+            - name: SERVICE_A_URL
+              value: "http://service-a:8081"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://otel-collector:4318"
+            - name: OTEL_SERVICE_NAME
+              value: "service-b"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-b
+  namespace: omniscope
+spec:
+  selector:
+    app: service-b
+  ports:
+    - port: 8082
+      targetPort: 8082

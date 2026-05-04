@@ -7,6 +7,7 @@ Deploys a minimal Azure Observability foundation:
 - Application Insights (linked to Log Analytics)
 - Azure Monitor Action Group (email receiver)
 - **Optional**: AKS cluster with Container Insights (OMS agent) wired to the Log Analytics workspace
+- **Optional**: **Azure Container Registry (ACR)** and **AcrPull** role for the AKS kubelet (so nodes can pull private images without imagePullSecrets for that registry)
 - **Optional**: test CPU load workload (`polinux/stress`) deployed to `loadtest` namespace via a `deploymentScript`
 
 ## Prerequisites
@@ -35,10 +36,16 @@ az deployment sub create \
 - `logAnalyticsRetentionDays`: default `30`
 - `appInsightsRetentionDays`: default `90`
 - `deployAks`: deploy AKS + sample load workload (default `true`)
+- `deployAcr`: when `true` and `deployAks` is `true`, create **ACR** and assign **AcrPull** to the cluster kubelet (default `true`)
+- `acrNameOverride`: optional ACR name (letters and digits only, 5–50 chars, globally unique). If empty, a name is derived from `uniqueString`
 - `aksSystemVmSize`: VM size for AKS system pool (default `Standard_D4s_v5`)
 - `aksSystemNodeCount`: node count for AKS system pool (default `2`)
 - `stressCpuWorkers`: CPU workers for `polinux/stress` (default `4`)
 - `loadTestDeployTag`: change this string if you want to re-run the post-install `kubectl apply`
+
+### Outputs (when AKS / ACR are deployed)
+
+- `acrLoginServer`, `acrName` — use with `docker tag` / `docker push` and with [`examples/kubernetes/`](../examples/kubernetes/) manifests (`__ACR_LOGIN_SERVER__` placeholder).
 
 ### Notes
 

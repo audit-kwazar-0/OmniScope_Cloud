@@ -12,7 +12,9 @@ The “base” resources created in all three implementations:
 - Application Insights (linked to Log Analytics)
 - Azure Monitor Action Group (email receiver)
 
-For a **local OpenTelemetry hands-on stack** (two Go services + Collector + Jaeger + Prometheus), see `../examples/` in this repository.
+**Bicep only (today):** optional **Azure Container Registry** plus **AcrPull** for the AKS kubelet, so the cluster can pull private application images without extra secrets for that registry. Terraform/Pulumi stacks remain the observability baseline without ACR until aligned.
+
+For **AKS-oriented** sample apps (Go services, Kubernetes manifests, ACR build/push, CI/CD notes), see `../examples/` in this repository.
 
 After you deploy the base, you can extend it with:
 - Azure Managed Prometheus (AMP)
