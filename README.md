@@ -57,7 +57,17 @@ To deploy **AKS without** a new registry (bring your own ACR or public images on
 
 ### Documentation site
 
-Sources live under [`doc-site/`](./doc-site/) (VitePress: `.vitepress/config.ts` + `index.md`). To preview locally, add a `package.json` in `doc-site/` with the [VitePress](https://vitepress.dev/) dependency and run the dev server from that directory, or read [`doc-site/index.md`](./doc-site/index.md) directly.
+Sources live under [`doc-site/`](./doc-site/) (VitePress). **Local preview:**
+
+```bash
+cd doc-site
+npm ci
+npm run docs:dev
+```
+
+**GitHub Pages** (Settings → Pages → **Source: GitHub Actions**): workflow [`.github/workflows/deploy-docs.yml`](./.github/workflows/deploy-docs.yml) builds on every push to `main` that touches `doc-site/`. The published URL is `https://<owner>.github.io/<repository>/` — set `VITEPRESS_BASE` in the workflow if your Pages URL uses a different path (for example user site `https://<user>.github.io/` with base `/`).
+
+**Sync with this README:** the wiki page [`repository-readme`](./doc-site/wiki/repository-readme.md) is regenerated from the root **README.md** by `doc-site/scripts/sync-readme.mjs` before `docs:dev` / `docs:build` (relative links are rewritten to `github.com/<repo>/blob/main/...` when `GITHUB_REPOSITORY` or `git remote` is available). Edit **README.md** here; do not hand-edit the generated wiki file.
 
 ---
 

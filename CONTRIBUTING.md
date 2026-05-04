@@ -67,7 +67,7 @@ Optional body: explain *why* if the title is not enough.
 
 | Path | Purpose |
 |------|---------|
-| [`doc-site/`](./doc-site/) | Architecture & workshop narrative (VitePress sources). |
+| [`doc-site/`](./doc-site/) | Architecture & workshop narrative (VitePress sources). Root **README.md** is mirrored into `doc-site/wiki/repository-readme.md` by `npm run sync-readme` (runs automatically before `docs:dev` / `docs:build`). |
 | [`infra/`](./infra/) | Parallel IaC: Bicep, Terraform, Pulumi (Azure observability baseline). |
 | [`examples/`](./examples/) | Go sample services + Kubernetes manifests for AKS; ACR / pipeline notes in `examples/docs/`. |
 

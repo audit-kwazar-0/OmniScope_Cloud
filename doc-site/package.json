@@ -1,0 +1,15 @@
+{
+  "name": "omniscope-doc-site",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sync-readme": "node ./scripts/sync-readme.mjs",
+    "docs:dev": "npm run sync-readme && vitepress dev",
+    "docs:build": "npm run sync-readme && vitepress build",
+    "docs:preview": "vitepress preview"
+  },
+  "devDependencies": {
+    "vitepress": "^1.6.3",
+    "vue": "^3.5.13"
+  }
+}

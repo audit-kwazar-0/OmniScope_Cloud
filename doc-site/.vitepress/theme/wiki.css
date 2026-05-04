@@ -1,0 +1,33 @@
+/**
+ * Wiki + dark: denser doc column, sidebar emphasis (works with appearance: force-dark).
+ */
+:root {
+  --vp-layout-max-width: 1480px;
+  --vp-sidebar-width: 19.5rem;
+}
+
+.VPDoc .content,
+.VPDoc .content-container {
+  max-width: 52rem;
+}
+
+aside.VPSidebar {
+  border-inline-end: 1px solid var(--vp-c-divider);
+}
+
+.VPSidebar .nav {
+  font-size: 13px;
+}
+
+.VPSidebarItem.level-0 > .item > .link {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* Index wiki table */
+.vp-doc th {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.85;
+}
