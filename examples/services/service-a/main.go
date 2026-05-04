@@ -1,0 +1,200 @@
+package main
+
+import (
+	"context"
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"strings"
+	"syscall"
+	"time"
+
+	"github.com/gin-gonic/gin"
+
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/propagation"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/resource"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
+)
+
+func parseOTLPEndpoint(raw string) (hostport string, err error) {
+	if raw == "" {
+		return "", fmt.Errorf("empty OTLP endpoint")
+	}
+	ep := strings.TrimSpace(raw)
+	ep = strings.TrimPrefix(ep, "http://")
+	ep = strings.TrimPrefix(ep, "https://")
+	if ep == "" {
+		return "", fmt.Errorf("invalid OTLP endpoint")
+	}
+	return ep, nil
+}
+
+func setupOTel(ctx context.Context, serviceName string) (shutdown func(context.Context) error, err error) {
+	raw := strings.TrimSpace(os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"))
+	if raw == "" {
+		raw = "localhost:4318"
+	}
+	ep, err := parseOTLPEndpoint(raw)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := resource.Merge(
+		resource.Default(),
+		resource.NewWithAttributes(
+			semconv.SchemaURL,
+			semconv.ServiceNameKey.String(serviceName),
+		),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	traceExporter, err := otlptracehttp.New(ctx,
+		otlptracehttp.WithEndpoint(ep),
+		otlptracehttp.WithInsecure(),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	metricExporter, err := otlpmetrichttp.New(ctx,
+		otlpmetrichttp.WithEndpoint(ep),
+		otlpmetrichttp.WithInsecure(),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	tracerProvider := sdktrace.NewTracerProvider(
+		sdktrace.WithBatcher(traceExporter),
+		sdktrace.WithResource(res),
+	)
+
+	meterProvider := sdkmetric.NewMeterProvider(
+		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(metricExporter)),
+		sdkmetric.WithResource(res),
+	)
+
+	otel.SetTracerProvider(tracerProvider)
+	otel.SetMeterProvider(meterProvider)
+	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
+		propagation.TraceContext{},
+		propagation.Baggage{},
+	))
+
+	return func(c context.Context) error {
+		me := tracerProvider.Shutdown(c)
+		mo := meterProvider.Shutdown(c)
+		switch {
+		case me != nil && mo != nil:
+			return fmt.Errorf("trace shutdown: %v; meter shutdown: %v", me, mo)
+		case me != nil:
+			return me
+		default:
+			return mo
+		}
+	}, nil
+}
+
+func main() {
+	serviceName := os.Getenv("OTEL_SERVICE_NAME")
+	if serviceName == "" {
+		serviceName = "service-a"
+	}
+
+	addr := strings.TrimSpace(os.Getenv("SERVICE_A_PORT"))
+	if addr == "" {
+		addr = ":8081"
+	}
+
+	serviceBURL := strings.TrimSuffix(strings.TrimSpace(os.Getenv("SERVICE_B_URL")), "/")
+	if serviceBURL == "" {
+		serviceBURL = "http://localhost:8082"
+	}
+
+	ctx := context.Background()
+	shutdown, err := setupOTel(ctx, serviceName)
+	if err != nil {
+		log.Fatalf("otel: %v", err)
+	}
+
+	gin.SetMode(gin.ReleaseMode)
+	r := gin.New()
+	r.Use(gin.Recovery())
+	r.Use(otelgin.Middleware(serviceName))
+
+	client := &http.Client{
+		Transport: otelhttp.NewTransport(http.DefaultTransport),
+		Timeout:   15 * time.Second,
+	}
+
+	r.GET("/health", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	r.GET("/hello-a", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"message": "hello from service-a"})
+	})
+
+	r.GET("/call-b", func(c *gin.Context) {
+		req, err := http.NewRequestWithContext(c.Request.Context(), http.MethodGet, serviceBURL+"/hello-b", nil)
+		if err != nil {
+			c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+			return
+		}
+		req = req.WithContext(c.Request.Context())
+
+		resp, err := client.Do(req)
+		if err != nil {
+			c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+			return
+		}
+		defer resp.Body.Close()
+
+		body, _ := io.ReadAll(resp.Body)
+		if resp.StatusCode != http.StatusOK {
+			c.JSON(resp.StatusCode, gin.H{"error": string(body)})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"via": "service-a", "from_b": strings.TrimSpace(string(body))})
+	})
+
+	srv := &http.Server{
+		Addr:              addr,
+		Handler:           r,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
+
+	go func() {
+		log.Printf("%s listening on %s\n", serviceName, addr)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("server: %v", err)
+		}
+	}()
+
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
+	<-stop
+
+	sdCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	_ = srv.Shutdown(sdCtx)
+	if err := shutdown(sdCtx); err != nil {
+		log.Printf("otel shutdown: %v", err)
+	}
+}

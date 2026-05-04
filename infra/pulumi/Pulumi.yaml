@@ -1,0 +1,4 @@
+name: omniscope-obs-test
+runtime: nodejs
+description: Minimal Azure Observability test platform
+

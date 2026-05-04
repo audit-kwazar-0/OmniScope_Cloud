@@ -1,0 +1,22 @@
+{
+    "notifications": {
+      "Actual_GreaterThan_80_Percent": {
+        "enabled": true,
+        "operator": "GreaterThan",
+        "threshold": 80,
+        "contactEmails": [
+          "oleg.kondratov@gmail.com"
+        ],
+        "thresholdType": "Actual"
+      },
+      "Actual_GreaterThan_95_Percent": {
+        "enabled": true,
+        "operator": "GreaterThan",
+        "threshold": 95,
+        "contactEmails": [
+          "oleg.kondratov@gmail.com"
+        ],
+        "thresholdType": "Actual"
+      }
+    }
+  }

@@ -1,0 +1,17 @@
+{
+  "name": "omniscope-obs-test-infra",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@pulumi/azure-native": "^3.0.0",
+    "@pulumi/pulumi": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}
+

@@ -1,0 +1,57 @@
+# --- Secrets & local config ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# --- Node (Pulumi / future doc-site tooling) ---
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# --- Pulumi ---
+.pulumi/
+*.pyc
+
+# --- Terraform ---
+**/.terraform/
+**/.terraform.lock.hcl
+**/*.tfstate
+**/*.tfstate.*
+**/crash.log
+**/override.tf
+**/override.tf.json
+**/*_override.tf
+**/*_override.tf.json
+
+# --- Azure / Bicep (optional local params) ---
+*.parameters.local.json
+**/azuredeploy.parameters.local.json
+
+# --- Build & caches ---
+dist/
+.cache/
+*.tsbuildinfo
+.vitepress/cache/
+
+# --- Go (examples) ---
+examples/**/vendor/
+
+# --- OS & editors ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json.example
+*.swp
+*.swo
+*~
+
+# --- Logs & temp ---
+*.log
+tmp/
+temp/
