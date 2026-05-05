@@ -1,6 +1,9 @@
 # Скелет: переиспользуемая сборка и push в ACR.
 # Вызов: workflow_call из microservice-*.yml или из ci-pipeline-skeleton.yml
 #
+# В GitHub НЕТ кнопки «Run workflow» у файлов только с on: workflow_call —
+# откройте вызывающий workflow (например CI — pipeline skeleton) и запускайте его.
+#
 # Перед использованием задайте federated credential + secrets в Environment (или repo),
 # как в Infra — Bicep what-if (AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID).
 # Дополнительно: ACR_LOGIN_SERVER (например myregistry.azurecr.io), при необходимости ACR_NAME для `az acr build`.

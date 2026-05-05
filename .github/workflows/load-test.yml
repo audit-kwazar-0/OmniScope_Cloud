@@ -24,13 +24,27 @@ jobs:
   k6:
     runs-on: ubuntu-latest
     env:
-      BASE_URL: ${{ inputs.base_url || vars.LOAD_TEST_BASE_URL }}
-      COMPARE_BASELINE: ${{ inputs.compare_baseline || 'true' }}
-      ALLOW_REGRESSION_PERCENT: ${{ vars.LOAD_TEST_ALLOW_REGRESSION_PERCENT || '10' }}
       RUN_ID: gh-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # Для workflow_dispatch брать BASE_URL/compare из dispatch; для schedule — только Variables.
+      - name: Установить BASE_URL и COMPARE_BASELINE (dispatch vs cron)
+        run: |
+          set -euo pipefail
+          ALLOW="${ALLOW_REGRESSION_PERCENT:-}"
+          if [ -z "$ALLOW" ]; then
+            ALLOW="10"
+          fi
+          echo "ALLOW_REGRESSION_PERCENT=${ALLOW}" >> "$GITHUB_ENV"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "BASE_URL=${{ inputs.base_url }}" >> "$GITHUB_ENV"
+            echo "COMPARE_BASELINE=${{ inputs.compare_baseline }}" >> "$GITHUB_ENV"
+          else
+            echo "BASE_URL=${{ vars.LOAD_TEST_BASE_URL }}" >> "$GITHUB_ENV"
+            echo "COMPARE_BASELINE=true" >> "$GITHUB_ENV"
+          fi
 
       - name: Install k6
         run: |

@@ -4,6 +4,7 @@
 name: 'Microservice — service-a (path skeleton)'
 
 on:
+  workflow_dispatch:
   push:
     branches: [main, master]
     paths:

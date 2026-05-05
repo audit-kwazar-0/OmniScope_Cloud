@@ -26,5 +26,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Ensure Bicep CLI
+        run: az bicep version 2>/dev/null || az bicep install
+
       - name: Bicep build
         run: az bicep build --file infra/bicep/main.bicep
