@@ -25,6 +25,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      - name: Git — default branch (quieter checkout logs)
+        run: |
+          git config --global init.defaultBranch main
+          git config --global advice.defaultBranchName false
+
       - name: Checkout
         uses: actions/checkout@v4
 
