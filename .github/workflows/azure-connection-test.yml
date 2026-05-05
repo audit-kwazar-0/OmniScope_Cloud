@@ -1,4 +1,8 @@
-# Минимальная проверка: GitHub Actions → Azure (OIDC), без Bicep и без деплоя.
+# Минимальная проверка: GitHub Actions → Azure (OIDC).
+# Ожидается GitHub Environment **bicep** с Secrets: AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID.
+# В Entra для этого же приложения нужен federated credential с типом **Environment** и именем **bicep**
+# (не только Branch — см. infra/bicep/GITHUB_ACTIONS_VARIABLES.md).
+#
 # Запуск: Actions → "Azure — connection test" → Run workflow.
 
 name: 'Azure — connection test'
@@ -13,25 +17,37 @@ permissions:
 jobs:
   verify-azure-login:
     runs-on: ubuntu-latest
+    environment: bicep
     steps:
-      - name: Проверка Variables
+      - name: Проверка Secrets (Environment bicep)
         env:
-          AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
-          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
         run: |
           set -euo pipefail
-          : "${AZURE_SUBSCRIPTION_ID:?Задайте repository Variable AZURE_SUBSCRIPTION_ID (см. GITHUB_ACTIONS_VARIABLES.md)}"
-          : "${AZURE_TENANT_ID:?Задайте repository Variable AZURE_TENANT_ID}"
-          : "${AZURE_CLIENT_ID:?Задайте repository Variable AZURE_CLIENT_ID}"
-          echo "Три Azure Variables на месте."
+          missing=""
+          [ -z "${AZURE_SUBSCRIPTION_ID:-}" ] && missing="$missing AZURE_SUBSCRIPTION_ID"
+          [ -z "${AZURE_TENANT_ID:-}" ] && missing="$missing AZURE_TENANT_ID"
+          [ -z "${AZURE_CLIENT_ID:-}" ] && missing="$missing AZURE_CLIENT_ID"
+          if [ -n "$missing" ]; then
+            echo "::error::В Environment «bicep» не заданы Secrets:$missing"
+            echo ""
+            echo "Settings → Environments → bicep → Environment secrets"
+            echo "Имена строго: AZURE_SUBSCRIPTION_ID, AZURE_TENANT_ID, AZURE_CLIENT_ID"
+            echo ""
+            echo "Альтернатива без Environment: уберите «environment: bicep» из workflow и храните те же имена в Repository Variables (vars)."
+            echo "Док: infra/bicep/GITHUB_ACTIONS_VARIABLES.md"
+            exit 1
+          fi
+          echo "Три Azure Secrets в окружении bicep на месте."
 
       - name: Azure login (OIDC)
         uses: azure/login@v2
         with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Подписка активна
         run: |

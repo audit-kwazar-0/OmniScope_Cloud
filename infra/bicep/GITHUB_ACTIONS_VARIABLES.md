@@ -2,30 +2,28 @@
 
 Ниже — **порядок действий**: сначала получаете значения в Azure / Entra, затем заносите их в GitHub. Разделение: **Variables** (некритичные строки) и **Secrets** (то, что не должно попадать в логи).
 
-Путь в GitHub: **Repository → Settings → Secrets and variables → Actions**.
+Путь в GitHub:
 
-- Вкладка **Variables** → **New repository variable** (для каждого имени из таблицы).
-- Вкладка **Secrets** → **New repository secret** (только для пунктов, помеченных как Secret).
+- **Repository** → **Settings** → **Secrets and variables** → **Actions** — общие Variables / Secrets для репозитория.
+- **Settings** → **Environments** → окружение **`bicep`** — свои **Environment secrets** и **Environment variables** (workflow в этом репозитории ожидает именно их для Azure OIDC).
+
+Текущие workflow **`.github/workflows/azure-connection-test.yml`** и **`infra-bicep-what-if.yml`** задают в job строку **`environment: bicep`**, поэтому `secrets.AZURE_*` и `vars.BICEP_*` читаются **из окружения `bicep`**, а не из глобальной вкладки Actions (если только вы не продублировали значения и там).
 
 ---
 
-## Нулевой шаг: только проверить, что GitHub «достучался» до Azure
+## Нулевой шаг: проверка подключения к Azure (`Azure — connection test`)
 
-Нужны **только три** Variable: `AZURE_SUBSCRIPTION_ID`, `AZURE_TENANT_ID`, `AZURE_CLIENT_ID` (как в шагах 1–3 ниже) + federated credential и роль у приложения.
+1. Создайте окружение: **Settings → Environments → New environment** → имя **`bicep`** (строго так).
+2. Внутри **bicep** → **Environment secrets** добавьте три секрета (имена **строго** как ниже):
+   - `AZURE_SUBSCRIPTION_ID`
+   - `AZURE_TENANT_ID`
+   - `AZURE_CLIENT_ID` (это **Application (client) ID** приложения в Entra)
+3. Значения возьмите из шагов 1–3 ниже (CLI или портал).
+4. В Entra для этого приложения настройте **Federated credential** под **GitHub Environment** с именем **`bicep`** (см. §3.2 — вариант «Environment»). Если у вас был только credential на **ветку `main`**, добавьте **второй** credential на environment **`bicep`** — subject в токене будет другим.
+5. Роль приложению на подписку — §3.3.
+6. **Actions → Azure — connection test → Run workflow** (ветка обычно `main`). В логе шага **«Подписка активна»** — `az account show`.
 
-**По шагам:**
-
-1. Локально: `az login`, `az account set -s ...`, выпишите **subscription id** и **tenant id** (шаги 1–2 ниже).
-2. В Entra: приложение + **Federated credential** (GitHub, ваш org/user, репо, ветка **`main`**) — шаг 3.2 ниже.
-3. Выдайте этому приложению роль на подписку (например Contributor для песочницы) — шаг 3.3.
-4. В GitHub → **Settings → Secrets and variables → Actions → Variables** создайте три переменные с **точными** именами.
-5. Закоммитьте и запушьте файл **`.github/workflows/azure-connection-test.yml`** (уже в репозитории).
-6. Откройте **Actions** → слева выберите **«Azure — connection test»**.
-7. Нажмите **Run workflow** → зелёная ветка **main** → **Run workflow**.
-8. Откройте появившийся **run** → дождитесь зелёного статуса.
-9. В шаге **«Подписка активна»** в логе должна быть таблица `az account show` с вашей подпиской.
-
-Если падает **Azure login** — снова проверьте federated credential (имя репо, org, **ветка main**) и что workflow запускаете с **main**. Если логин ок, а дальше **Forbidden** — смотрите роли приложения на подписке.
+**Альтернатива без Environment:** удалите из YAML строку `environment: bicep` и храните `AZURE_*` как **Repository Variables** (`vars`) — тогда federated credential достаточно на **Branch** (см. §3.2).
 
 ---
 
@@ -39,7 +37,7 @@
    az account show --query id -o tsv
    ```
 
-4. В GitHub создайте variable **`AZURE_SUBSCRIPTION_ID`** = скопированный GUID.
+4. В GitHub добавьте значение как **Environment secret** `AZURE_SUBSCRIPTION_ID` в окружении **`bicep`** (или как repository Variable, если workflow без `environment:`).
 
 ---
 
@@ -51,13 +49,13 @@
    az account show --query tenantId -o tsv
    ```
 
-2. В GitHub создайте variable **`AZURE_TENANT_ID`** = этот GUID.
+2. В GitHub: **Environment secret** **`AZURE_TENANT_ID`** в **`bicep`** (или repository Variable).
 
 Альтернатива: портал **Microsoft Entra ID** → **Overview** → **Tenant ID**.
 
 ---
 
-## Шаг 3. Приложение для CI (OIDC) — `AZURE_CLIENT_ID` (Variable)
+## Шаг 3. Приложение для CI (OIDC) — `AZURE_CLIENT_ID` (Variable / Secret)
 
 Нужен **App registration** (сервисное приложение), с которым GitHub будет входить **без пароля**, через **federated credential** (OIDC).
 
@@ -75,21 +73,29 @@
 2. В меню слева: **Certificates & secrets** → вкладка **Federated credentials** → **Add credential**.  
    (В части порталов пункт **Federated credentials** также есть в левом меню приложения — можно открыть оттуда.)
 3. **Credential type / scenario**: выберите сценарий вроде **GitHub Actions deploying Azure resources** (название может слегка отличаться в UI).
-4. Заполните поля GitHub (должны **точно** совпасть с тем, откуда запускается workflow):
-   - **Organization** — владелец репозитория на GitHub (`user` или `org`), **без** `https://`.
-   - **Repository** — имя репо **как в URL** (`OmniScope_Cloud`, регистр важен, если так заведён репозиторий).
-   - **Entity type** — для нашего workflow **`infra-bicep-what-if.yml`** удобнее **Branch** (не Environment), если в credential не задавали среду.
-   - **GitHub branch name** — `main` или `master`, **та же ветка**, с которой вы запускаете Actions (и которая указана в federated credential).
-5. **Credential details → Name** — обязательное имя credential (например `github-oidc-main`); **Description** можно оставить пустым. Поля **Issuer**, **Subject identifier** и **Audience** (`api://AzureADTokenExchange`) портал заполняет сам — их не копируют в GitHub.
+4. Заполните поля GitHub (должны **точно** совпасть с тем, как у вас настроены workflow и GitHub):
+
+   **Вариант A — только ветка (без `environment:` в workflow)**  
+   - **Entity type:** **Branch**  
+   - **GitHub branch name:** `main` (или `master`)  
+   - Плюс **Organization** и **Repository** как у вас на GitHub.
+
+   **Вариант B — как в текущих workflow репозитория (`environment: bicep`)**  
+   - **Entity type:** **Environment**  
+   - **Environment name:** **`bicep`** (то же имя, что в GitHub **Settings → Environments**)  
+   - **Organization** и **Repository** — как у вас на GitHub.  
+   Subject в портале будет вида `repo:ORG/REPO:environment:bicep` — при несовпадении с реальным environment вход OIDC падает.
+
+5. **Credential details → Name** — обязательное имя credential (например `github-oidc-env-bicep`); **Description** можно оставить пустым. Поля **Issuer**, **Subject identifier** и **Audience** (`api://AzureADTokenExchange`) портал заполняет сам — их не копируют в GitHub.
 6. Нажмите **Add** / сохраните credential.
 
 **Что из обзора приложения куда класть (не путать):**
 
-| Поле в портале (Overview приложения) | Куда в GitHub |
-|--------------------------------------|---------------|
-| **Application (client) ID** | Variable **`AZURE_CLIENT_ID`** (шаг 3.4) |
-| **Directory (tenant) ID** | Variable **`AZURE_TENANT_ID`** (шаг 2; то же значение) |
-| **Object ID** | **Не** копируйте в GitHub Variables для `azure/login` — это внутренний идентификатор объекта в Entra; для входа из Actions нужны **client id**, **tenant id**, **subscription id**. |
+| Поле в портале (Overview приложения) | Куда в GitHub (текущие workflow) |
+|--------------------------------------|-------------------------------------|
+| **Application (client) ID** | **Secret** **`AZURE_CLIENT_ID`** в Environment **`bicep`** (или Repository Variable, если без `environment:`) |
+| **Directory (tenant) ID** | **Secret** **`AZURE_TENANT_ID`** в **`bicep`** (или Variable на уровне репо) |
+| **Object ID** | **Не** используется в `azure/login` |
 
 После сохранения в списке federated credentials появится строка с **Issuer** и **Subject** — их **не** нужно руками переносить в GitHub: `azure/login` подставляет их из контекста `github.token` при OIDC.
 
@@ -115,9 +121,9 @@ az role assignment create \
 
 Для продакшена лучше **отдельная подписка** или scope на конкретную RG.
 
-### 3.4 Variable в GitHub
+### 3.4 Куда записать идентификаторы в GitHub
 
-Создайте variable **`AZURE_CLIENT_ID`** = Application (client) ID из шага 3.1.
+Для workflow с **`environment: bicep`**: **Settings → Environments → bicep → Environment secrets** — три секрета `AZURE_SUBSCRIPTION_ID`, `AZURE_TENANT_ID`, `AZURE_CLIENT_ID` (значения из шагов 1–3 и client id приложения).
 
 **Client secret не создавайте** — при OIDC он не нужен.
 
@@ -125,10 +131,10 @@ az role assignment create \
 
 ## Шаг 4. Параметры Bicep (Variables)
 
-Эти значения передаются в `az deployment sub what-if` в workflow **`infra-bicep-what-if.yml`**.
+Передаются в **`infra-bicep-what-if.yml`**. Удобно задать их как **Environment variables** в **`bicep`** (тот же раздел, что и secrets): тогда `vars.BICEP_*` подтянутся в job с `environment: bicep`. Иначе — **Repository** → Actions → **Variables** с теми же именами.
 
-| Имя в GitHub | Откуда взять | Пример |
-|--------------|--------------|--------|
+| Имя | Откуда взять | Пример |
+|-----|--------------|--------|
 | **`BICEP_PREFIX`** | Ваш префикс имён ресурсов (уникальный в подписке) | `omniscope-obs-test` |
 | **`BICEP_LOCATION`** | Регион ARM metadata / ресурсов | `westeurope` или `northeurope` |
 | **`BICEP_ALERT_EMAIL`** | Почта для Action Group (обязательный параметр шаблона) | рабочий email |
@@ -154,24 +160,24 @@ az role assignment create \
 
 ## Шаг 6. Проверка
 
-1. Убедитесь, что все **Variables** из шагов 1–4 созданы (и Secret для почты — по желанию).
-2. **Actions** → workflow **Infra — Bicep what-if (Azure)** → **Run workflow** (только `workflow_dispatch`).
-3. При ошибке входа проверьте federated credential (ветка, org, имя репо) и роль на подписке.
+1. Окружение **`bicep`**: заданы **Environment secrets** `AZURE_*` и **Variables** (или **Environment variables**) `BICEP_*`.
+2. **Actions** → **Infra — Bicep what-if (Azure)** → **Run workflow**.
+3. Ошибка входа: federated credential должен соответствовать **Environment `bicep`** (или уберите `environment:` из workflow и используйте credential на **ветку**). Плюс роль SP на подписке.
 
 ---
 
-## Сводная таблица имён
+## Сводная таблица имён (текущие workflow с `environment: bicep`)
 
-| Имя | Тип | Обязательно для what-if в CI |
-|-----|-----|--------------------------------|
-| `AZURE_SUBSCRIPTION_ID` | Variable | да |
-| `AZURE_TENANT_ID` | Variable | да |
-| `AZURE_CLIENT_ID` | Variable | да (OIDC) |
-| `BICEP_PREFIX` | Variable | да |
-| `BICEP_LOCATION` | Variable | да |
-| `BICEP_ALERT_EMAIL` | Variable **или** Secret | да |
-| `BICEP_DEPLOY_AKS` | Variable | нет (по умолчанию `false`) |
-| `BICEP_DEPLOY_ACR` | Variable | нет (по умолчанию `false`) |
+| Имя | Где задать | Обязательно |
+|-----|------------|-------------|
+| `AZURE_SUBSCRIPTION_ID` | **Environment secret** `bicep` | да |
+| `AZURE_TENANT_ID` | **Environment secret** `bicep` | да |
+| `AZURE_CLIENT_ID` | **Environment secret** `bicep` | да (OIDC) |
+| `BICEP_PREFIX` | Environment **или** repository **Variable** | да (what-if) |
+| `BICEP_LOCATION` | Environment **или** repository **Variable** | да (what-if) |
+| `BICEP_ALERT_EMAIL` | Environment/repository **Variable** или **Secret** | да (what-if) |
+| `BICEP_DEPLOY_AKS` | Variable | нет (`false`) |
+| `BICEP_DEPLOY_ACR` | Variable | нет (`false`) |
 
 ---
 

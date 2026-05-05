@@ -1,5 +1,10 @@
 # Subscription-level Bicep what-if using OIDC (no client secret).
-# Prerequisites: repository Variables (and optional Secret) — см. infra/bicep/GITHUB_ACTIONS_VARIABLES.md
+# Ожидается GitHub Environment **bicep**:
+#   Secrets: AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID
+#   Variables (или repository): BICEP_PREFIX, BICEP_LOCATION, опционально BICEP_DEPLOY_AKS / BICEP_DEPLOY_ACR
+#   Secret или Variable: BICEP_ALERT_EMAIL
+#
+# См. infra/bicep/GITHUB_ACTIONS_VARIABLES.md (Environment + Federated credential).
 
 name: 'Infra — Bicep what-if (Azure)'
 
@@ -16,15 +21,16 @@ env:
 jobs:
   what-if:
     runs-on: ubuntu-latest
+    environment: bicep
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Check required configuration
         env:
-          SUB: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-          TENANT: ${{ vars.AZURE_TENANT_ID }}
-          CLIENT: ${{ vars.AZURE_CLIENT_ID }}
+          SUB: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          TENANT: ${{ secrets.AZURE_TENANT_ID }}
+          CLIENT: ${{ secrets.AZURE_CLIENT_ID }}
           PREFIX: ${{ vars.BICEP_PREFIX }}
           LOC: ${{ vars.BICEP_LOCATION }}
         run: |
@@ -32,18 +38,18 @@ jobs:
           for name in SUB TENANT CLIENT PREFIX LOC; do
             eval "v=\${$name}"
             if [ -z "$v" ]; then
-              echo "Missing repository variable (see infra/bicep/GITHUB_ACTIONS_VARIABLES.md): $name"
+              echo "Missing value for $name (Azure IDs → Secrets в Environment bicep; BICEP_* → Variables)"
               exit 1
             fi
           done
-          echo "Required vars present."
+          echo "Required secrets/vars present."
 
       - name: Azure login (OIDC)
         uses: azure/login@v2
         with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Bicep build
         run: az bicep build --file "$ARM_TEMPLATE"
@@ -59,7 +65,7 @@ jobs:
           ALERT="${ALERT_SECRET:-}"
           if [ -z "$ALERT" ]; then ALERT="${ALERT_VAR:-}"; fi
           if [ -z "$ALERT" ]; then
-            echo "Set BICEP_ALERT_EMAIL as a repository Variable or Secret."
+            echo "Set BICEP_ALERT_EMAIL as Environment or repository Variable or Secret."
             exit 1
           fi
           AKS="${DEPLOY_AKS:-false}"
