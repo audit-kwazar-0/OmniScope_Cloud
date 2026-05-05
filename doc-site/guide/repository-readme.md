@@ -85,6 +85,7 @@ flowchart LR
 ```
 
 - Rebuilt documentation entrypoint: [`docs/README.md`](https://github.com/audit-kwazar-0/OmniScope_Cloud/blob/main/docs/README.md)
+- Project story (philosophy + implementation narrative): [`docs/PROJECT_STORY.md`](https://github.com/audit-kwazar-0/OmniScope_Cloud/blob/main/docs/PROJECT_STORY.md)
 - Deployment runbook (`create -> deploy -> verify -> cleanup`): [`docs/DEPLOYMENT_RUNBOOK.md`](https://github.com/audit-kwazar-0/OmniScope_Cloud/blob/main/docs/DEPLOYMENT_RUNBOOK.md)
 - Evidence and screenshot checklist: [`docs/EVIDENCE.md`](https://github.com/audit-kwazar-0/OmniScope_Cloud/blob/main/docs/EVIDENCE.md)
 - Grafana import template: [`docs/grafana-dashboard.json`](https://github.com/audit-kwazar-0/OmniScope_Cloud/blob/main/docs/grafana-dashboard.json)
@@ -103,7 +104,7 @@ npm run docs:dev
 
 **GitHub Pages** (Settings → Pages → **Source: GitHub Actions**): workflow [`.github/workflows/deploy-docs.yml`](https://github.com/audit-kwazar-0/OmniScope_Cloud/blob/main/.github/workflows/deploy-docs.yml) builds on every push to `main` when `doc-site/`, root `README.md`, or the workflow changes. For **project** Pages the URL is `https://<owner>.github.io/<repository>/` (this repo: link above). For a **user** site (`<user>.github.io` only) set `VITEPRESS_BASE: /` and adjust `DOCS_PUBLIC_URL` in the workflow.
 
-**Sync with this README:** the wiki page [`repository-readme`](https://github.com/audit-kwazar-0/OmniScope_Cloud/blob/main/doc-site/wiki/repository-readme.md) is regenerated from the root **README.md** by `doc-site/scripts/sync-readme.mjs` before `docs:dev` / `docs:build` (relative links are rewritten to `github.com/<repo>/blob/main/...` when `GITHUB_REPOSITORY` or `git remote` is available). Edit **README.md** here; do not hand-edit the generated wiki file.
+**Sync with this README:** the guide page [`repository-readme`](https://github.com/audit-kwazar-0/OmniScope_Cloud/blob/main/doc-site/guide/repository-readme.md) is regenerated from the root **README.md** by `doc-site/scripts/sync-readme.mjs` before `docs:dev` / `docs:build` (relative links are rewritten to `github.com/<repo>/blob/main/...` when `GITHUB_REPOSITORY` or `git remote` is available). Edit **README.md** here; do not hand-edit the generated page.
 
 ---
 

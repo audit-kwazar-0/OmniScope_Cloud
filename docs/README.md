@@ -1,6 +1,9 @@
-# StreamForge on Azure — Documentation
+# OmniScope on Azure — Documentation
 
 This documentation is rebuilt from current code and deployment behavior in this repository.
+
+Project narrative (philosophy + implementation story):
+- `docs/PROJECT_STORY.md`
 
 ## 1. What this project deploys
 
