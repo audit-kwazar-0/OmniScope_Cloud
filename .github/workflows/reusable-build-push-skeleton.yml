@@ -1,0 +1,56 @@
+# Скелет: переиспользуемая сборка и push в ACR.
+# Вызов: workflow_call из microservice-*.yml или из ci-pipeline-skeleton.yml
+#
+# Перед использованием задайте federated credential + secrets в Environment (или repo),
+# как в Infra — Bicep what-if (AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID).
+# Дополнительно: ACR_LOGIN_SERVER (например myregistry.azurecr.io), при необходимости ACR_NAME для `az acr build`.
+
+name: 'Reusable — build & push (skeleton)'
+
+on:
+  workflow_call:
+    inputs:
+      image_repository:
+        description: 'Имя репозитория в ACR без сервера (например omniscope/service-a)'
+        required: true
+        type: string
+      docker_context:
+        description: 'Каталог Dockerfile (от корня репо)'
+        required: true
+        type: string
+      image_tag:
+        description: 'Тег образа (например git SHA или run id)'
+        required: true
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    environment: acr-build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure — login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: ACR login
+        run: az acr login --name "${{ vars.ACR_NAME }}"
+
+      # Вариант A: build на раннере
+      - name: Docker build & push (скелет — раскомментировать при наличии Dockerfile)
+        run: |
+          echo "::notice::Скелет: подставьте ACR_LOGIN_SERVER / путь к Dockerfile"
+          echo "Would build: ${{ inputs.docker_context }}"
+          echo "Image: ${{ vars.ACR_LOGIN_SERVER }}/${{ inputs.image_repository }}:${{ inputs.image_tag }}"
+          # docker build -t "$REG/${{ inputs.image_repository }}:${{ inputs.image_tag }}" "${{ inputs.docker_context }}"
+          # docker push "$REG/${{ inputs.image_repository }}:${{ inputs.image_tag }}"
+
+      # Вариант B (предпочтительно в Azure): az acr build --registry ... --image repo:tag .

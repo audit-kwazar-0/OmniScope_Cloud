@@ -12,6 +12,7 @@ For the relationship **ACR ↔ AKS**, **build/push/deploy**, and **Azure Repos**
 |------|---------|
 | `services/service-a`, `services/service-b` | `Dockerfile` + Go sources for `docker build` / pipeline build. |
 | `kubernetes/` | Namespaced workloads for AKS (`omniscope` namespace). |
+| `kubernetes/alertmanager/` | Optional in-cluster Alertmanager manifests (SMTP email route). |
 | `kubernetes/gateway/` | Optional Gateway API (`Gateway` + `HTTPRoute`) to expose app without port-forward. |
 | `docs/AKS-ACR-CICD.md` | ACR, AKS, CI/CD, Azure Repos. |
 | `otel-collector-config.yaml` | Optional reference copy of the collector config (source of truth in `kubernetes/otel/20-otel-configmap.yaml`). |
@@ -95,6 +96,25 @@ Then check `Gateway` status/address and call:
 - `/hello-a`
 - `/call-b`
 - `/hello-b`
+
+### Optional: Alertmanager in cluster
+
+1. Create SMTP config secret:
+
+```bash
+SMTP_FROM="your-sender@gmail.com" \
+SMTP_USERNAME="your-sender@gmail.com" \
+SMTP_PASSWORD="app-password" \
+ALERT_EMAIL_TO="tempb59@gmail.com" \
+../scripts/create-alertmanager-secret.sh
+```
+
+2. Apply resources:
+
+```bash
+kubectl apply -f kubernetes/alertmanager/10-alertmanager.yaml
+kubectl -n omniscope rollout status deploy/alertmanager --timeout=240s
+```
 
 ---
 

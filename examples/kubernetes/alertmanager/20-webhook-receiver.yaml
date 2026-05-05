@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alert-webhook-receiver
+  namespace: omniscope
+  labels:
+    app: alert-webhook-receiver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: alert-webhook-receiver
+  template:
+    metadata:
+      labels:
+        app: alert-webhook-receiver
+    spec:
+      containers:
+        - name: receiver
+          image: mendhak/http-https-echo:35
+          ports:
+            - containerPort: 8080
+              name: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alert-webhook-receiver
+  namespace: omniscope
+spec:
+  selector:
+    app: alert-webhook-receiver
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080

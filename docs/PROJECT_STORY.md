@@ -42,8 +42,8 @@
 
 - OpenTelemetry tracing через OTel Collector;
 - кастомные бизнес-метрики:
-  - `streamforge_processed_messages_total`
-  - `streamforge_processing_errors_total`
+  - `omniscope_processed_messages_total`
+  - `omniscope_processing_errors_total`
 - цепочка вызовов `/call-b`, которая показывает сквозной trace.
 
 Так мы видим не только “кластер жив”, а именно **поведение бизнес-потока**.

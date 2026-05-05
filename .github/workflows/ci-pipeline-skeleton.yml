@@ -1,0 +1,125 @@
+# Скелет цепочки: validate → infra → build (параллель) → deploy Kubernetes → verify.
+# GitHub Actions не имеет stages: порядок задаётся только через needs: между jobs.
+#
+# Запуск вручную. Для автозапуска добавьте push/pull_request и paths:.
+# Secrets/vars: см. infra-bicep-what-if.yml (environment **bicep**) и reusable-build-push-skeleton (**acr-build**).
+
+name: 'CI — pipeline skeleton (validate → infra → k8s)'
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_infra:
+        description: 'Запускать job деплоя инфры (Bicep/Pulumi)'
+        type: boolean
+        default: false
+      run_k8s_deploy:
+        description: 'Запускать деплой в AKS'
+        type: boolean
+        default: false
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bicep compile (как в infra-bicep.yml)
+        run: az bicep build --file infra/bicep/main.bicep
+
+  # Опционально: аналог для Pulumi (раскомментировать при использовании)
+  # validate-pulumi:
+  #   runs-on: ubuntu-latest
+  #   defaults:
+  #     run:
+  #       working-directory: infra/pulumi
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version: '22'
+  #     - run: npm ci && npx pulumi preview --stack dev --non-interactive
+  #       env:
+  #         PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_ACCESS_TOKEN }}
+
+  infra:
+    needs: [validate]
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_infra }}
+    runs-on: ubuntu-latest
+    environment: bicep
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy infra (скелет)
+        run: |
+          echo "::notice::Подключите сюда ваш deploy.sh / az deployment sub create / pulumi up"
+          echo "Prefix: ${{ vars.BICEP_PREFIX }} Location: ${{ vars.BICEP_LOCATION }}"
+
+  # Шлюз: без него job'ы с needs: [infra] не запустятся, когда infra skipped (см. документацию GHA).
+  prepare-build:
+    needs: [validate, infra]
+    runs-on: ubuntu-latest
+    if: >-
+      ${{
+        always()
+        && needs.validate.result == 'success'
+        && github.event_name == 'workflow_dispatch'
+        && (needs.infra.result == 'success' || needs.infra.result == 'skipped')
+        && !cancelled()
+      }}
+    steps:
+      - run: echo "validate OK; infra зелёный или intentionally skipped → можно собирать образы"
+
+  build-service-a:
+    needs: [prepare-build]
+    uses: ./.github/workflows/reusable-build-push-skeleton.yml
+    with:
+      image_repository: omniscope/service-a
+      docker_context: examples/kubernetes/apps
+      image_tag: ${{ github.sha }}
+    secrets: inherit
+
+  build-service-b:
+    needs: [prepare-build]
+    uses: ./.github/workflows/reusable-build-push-skeleton.yml
+    with:
+      image_repository: omniscope/service-b
+      docker_context: examples/kubernetes/apps
+      image_tag: ${{ github.sha }}
+    secrets: inherit
+
+  deploy-k8s:
+    needs: [build-service-a, build-service-b]
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_k8s_deploy && needs.build-service-a.result == 'success' && needs.build-service-b.result == 'success' }}
+    runs-on: ubuntu-latest
+    environment: aks-deploy
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: kubeconfig (скелет)
+        run: |
+          echo "::notice::az aks get-credentials --resource-group \$RG --name \$AKS --admin"
+          echo "Затем kubectl apply -k или ./scripts/..."
+
+      - name: kubectl apply (заглушка)
+        run: echo "kubectl apply -f examples/kubernetes/apps/..."
+
+  verify:
+    needs: [deploy-k8s]
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_k8s_deploy && needs.deploy-k8s.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "kubectl rollout status ... / curl smoke URL"

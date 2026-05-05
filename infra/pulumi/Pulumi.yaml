@@ -1,4 +1,21 @@
-name: omniscope-obs-test
-runtime: nodejs
-description: Minimal Azure Observability test platform
-
+name: omniscope-infra
+description: OmniScope Cloud — Azure stack (RG, LAW, AKS, optional Grafana/AMW)
+runtime:
+  name: nodejs
+  options:
+    typescript: true
+config:
+  omniscope:prefix: omniscope-aks-test
+  omniscope:alertEmail: oncall@example.com
+  omniscope:location: westeurope
+  omniscope:acrNameOverride: ""
+  omniscope:teamsWebhookUri: ""
+  omniscope:deployManagedPrometheus: "false"
+  omniscope:deployLogExport: "false"
+  omniscope:deployAks: "true"
+  omniscope:deployAcr: "true"
+  omniscope:deployAksDiagnostics: "false"
+  omniscope:aksSystemVmSize: Standard_B2s_v2
+  omniscope:aksSystemNodeCount: "2"
+  omniscope:stressCpuWorkers: "4"
+  omniscope:tags: "{}"

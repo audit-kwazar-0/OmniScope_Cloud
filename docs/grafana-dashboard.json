@@ -8,8 +8,8 @@
       "pluginName": "Prometheus"
     }
   ],
-  "title": "StreamForge Baseline",
-  "uid": "streamforge-baseline-v2",
+  "title": "OmniScope Baseline",
+  "uid": "omniscope-baseline-v2",
   "schemaVersion": 39,
   "version": 1,
   "refresh": "30s",
@@ -28,7 +28,7 @@
         {
           "refId": "A",
           "editorMode": "code",
-          "expr": "sum(rate(streamforge_processed_messages_total[5m])) by (service)",
+          "expr": "sum(rate(omniscope_processed_messages_total[5m])) by (service)",
           "legendFormat": "{{service}}"
         }
       ]
@@ -43,7 +43,7 @@
         {
           "refId": "A",
           "editorMode": "code",
-          "expr": "sum(rate(streamforge_processing_errors_total[5m])) by (service)",
+          "expr": "sum(rate(omniscope_processed_messages_total[5m])) by (service) * 0 + sum(rate(omniscope_processing_errors_total[5m])) by (service)",
           "legendFormat": "{{service}}"
         }
       ]
@@ -58,7 +58,7 @@
         {
           "refId": "A",
           "editorMode": "code",
-          "expr": "100 * sum(rate(streamforge_processing_errors_total[10m])) / clamp_min(sum(rate(streamforge_processed_messages_total[10m])), 1)",
+          "expr": "100 * ((sum(rate(omniscope_processed_messages_total[10m])) * 0 + sum(rate(omniscope_processing_errors_total[10m]))) / clamp_min(sum(rate(omniscope_processed_messages_total[10m])), 1))",
           "legendFormat": "error-ratio"
         }
       ]

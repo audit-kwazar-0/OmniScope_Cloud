@@ -5,6 +5,16 @@ This documentation is rebuilt from current code and deployment behavior in this 
 Project narrative (philosophy + implementation story):
 - `docs/PROJECT_STORY.md`
 
+Future project vision (target state + roadmap):
+- `docs/PROJECT_VISION.md`
+
+Project plan with KPI/risks/milestones:
+- `docs/PROJECT_PLAN_30_60_90.md`
+
+Load test + Service Mesh validation checklist:
+- `docs/LOAD_TEST_AND_SERVICE_MESH_VALIDATION.md`
+- `docs/LOAD_TEST_BASELINE.md`
+
 ## 1. What this project deploys
 
 Infrastructure is deployed via Bicep (`infra/bicep`) at subscription scope:
@@ -33,8 +43,8 @@ Both are instrumented with OpenTelemetry and emit:
 
 - traces (OTLP)
 - metrics, including custom counters:
-  - `streamforge_processed_messages_total`
-  - `streamforge_processing_errors_total`
+  - `omniscope_processed_messages_total`
+  - `omniscope_processing_errors_total`
 
 ## 2. Repository map
 
@@ -57,6 +67,12 @@ Both are instrumented with OpenTelemetry and emit:
 
 See detailed runbook: `docs/DEPLOYMENT_RUNBOOK.md`.
 
+Automated full deploy scripts:
+- `scripts/deploy-project.sh`
+- `scripts/cleanup-project.sh`
+- `scripts/run-load-test.sh`
+- `scripts/create-alertmanager-secret.sh`
+
 Short version:
 
 1. Deploy infra from `infra/bicep`.
@@ -75,6 +91,9 @@ Short version:
 - `infra-bicep-what-if.yml`  
   Manual `what-if` against Azure subscription using OIDC, with dispatch overrides for `deployAks` and `deployAcr`.
 
+- `load-test.yml`  
+  Manual + scheduled k6 load test with summary artifacts and optional baseline regression check.
+
 ## 5. Observability model
 
 - **Metrics**: Managed Prometheus + Managed Grafana (optional via params)
@@ -91,6 +110,8 @@ See full evidence checklist and screenshot plan: `docs/EVIDENCE.md`.
 
 Grafana import template (rebuilt):
 - `docs/grafana-dashboard.json`
+- `docs/grafana-alerting-dashboard.json`
+- `docs/grafana-platform-health-dashboard.json`
 
 Core runtime checks:
 

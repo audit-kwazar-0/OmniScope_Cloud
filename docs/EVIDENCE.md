@@ -45,11 +45,11 @@ Import dashboard JSON:
 PromQL quick checks:
 
 ```promql
-sum(rate(streamforge_processed_messages_total[5m])) by (service)
+sum(rate(omniscope_processed_messages_total[5m])) by (service)
 ```
 
 ```promql
-sum(rate(streamforge_processing_errors_total[5m])) by (service)
+sum(rate(omniscope_processing_errors_total[5m])) by (service)
 ```
 
 Capture:
@@ -92,7 +92,7 @@ az monitor action-group list --resource-group "$RG" -o table
 
 Expected alert rules:
 - `<prefix>-ag-aks-cpu-high`
-- `<prefix>-ag-streamforge-errors`
+- `<prefix>-ag-omniscope-errors`
 
 Expected action receivers:
 - email

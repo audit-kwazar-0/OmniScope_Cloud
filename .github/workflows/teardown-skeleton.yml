@@ -1,0 +1,56 @@
+# Скелет: только ручной teardown (dev / review env). Защитите Environment в GitHub approvals.
+# Порядок: сначала снять нагрузку в Kubernetes, затем инфра (или наоборот — по вашей политике данных).
+
+name: 'Teardown — skeleton (manual)'
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Что удалить'
+        type: choice
+        options:
+          - k8s-namespace-only
+          - full-rg-with-approval
+        default: k8s-namespace-only
+      namespace:
+        description: 'Kubernetes namespace (для k8s-namespace-only)'
+        type: string
+        default: omniscope
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  delete-k8s:
+    if: ${{ inputs.target == 'k8s-namespace-only' }}
+    runs-on: ubuntu-latest
+    environment: aks-deploy
+    steps:
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: kubeconfig + delete namespace (скелет)
+        run: |
+          echo "::warning::Удаление namespace ${{ inputs.namespace }} — раскомментировать после настройки kubectl"
+          # az aks get-credentials ...
+          # kubectl delete namespace ${{ inputs.namespace }} --wait=true
+
+  destroy-infra:
+    if: ${{ inputs.target == 'full-rg-with-approval' }}
+    runs-on: ubuntu-latest
+    environment: production-teardown
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Destroy (скелет)
+        run: |
+          echo "::warning::pulumi destroy / удаление RG — только после явного approve Environment"
+          echo "RG: ${{ vars.TARGET_RESOURCE_GROUP }}"

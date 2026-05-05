@@ -8,7 +8,7 @@ Configured by `infra/bicep/modules/observability-base.bicep`.
   - `*-ag-aks-cpu-high`
   - scheduled query over LAW / InsightsMetrics
 - App:
-  - `*-ag-streamforge-errors`
+  - `*-ag-omniscope-errors`
   - error ratio over `ContainerLogV2`
 
 ## Action Group

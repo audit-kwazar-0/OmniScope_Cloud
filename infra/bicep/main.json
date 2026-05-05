@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.42.1.51946",
-      "templateHash": "12997442953159151181"
+      "templateHash": "10657271815743344091"
     }
   },
   "parameters": {
@@ -107,7 +107,7 @@
     },
     "aksSystemVmSize": {
       "type": "string",
-      "defaultValue": "Standard_D4s_v5",
+      "defaultValue": "Standard_B2s_v2",
       "metadata": {
         "description": "AKS node pool VM size for the system pool."
       }
@@ -115,6 +115,7 @@
     "aksSystemNodeCount": {
       "type": "int",
       "defaultValue": 2,
+      "minValue": 1,
       "metadata": {
         "description": "AKS system pool node count (test default)."
       }
@@ -122,6 +123,7 @@
     "stressCpuWorkers": {
       "type": "int",
       "defaultValue": 4,
+      "minValue": 1,
       "metadata": {
         "description": "CPU workers for polinux/stress in loadtest deployment."
       }
@@ -143,7 +145,7 @@
     "azureMonitorWorkspaceName": "[format('{0}-amw', parameters('prefix'))]",
     "grafanaName": "[take(format('{0}grafana', parameters('prefix')), 23)]",
     "eventHubNamespaceName": "[take(replace(format('{0}ehns', parameters('prefix')), '-', ''), 50)]",
-    "eventHubName": "streamforge-logs"
+    "eventHubName": "omniscope-logs"
   },
   "resources": [
     {
@@ -219,7 +221,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.42.1.51946",
-              "templateHash": "5563350424062523017"
+              "templateHash": "6738081362868678558"
             }
           },
           "parameters": {
@@ -509,11 +511,11 @@
             {
               "type": "Microsoft.Insights/scheduledQueryRules",
               "apiVersion": "2023-12-01",
-              "name": "[format('{0}-streamforge-errors', parameters('actionGroupName'))]",
+              "name": "[format('{0}-omniscope-errors', parameters('actionGroupName'))]",
               "location": "[parameters('location')]",
               "tags": "[parameters('tags')]",
               "properties": {
-                "description": "StreamForge error ratio > 5% for last 10 minutes",
+                "description": "OmniScope error ratio > 5% for last 10 minutes",
                 "enabled": true,
                 "severity": 2,
                 "evaluationFrequency": "PT5M",
@@ -719,7 +721,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.42.1.51946",
-              "templateHash": "18370412389533834803"
+              "templateHash": "5829007668458638138"
             }
           },
           "parameters": {
@@ -765,7 +767,7 @@
             },
             "systemVmSize": {
               "type": "string",
-              "defaultValue": "Standard_D4s_v5",
+              "defaultValue": "Standard_B2s_v2",
               "metadata": {
                 "description": "System node pool VM size."
               }
@@ -773,6 +775,7 @@
             "systemNodeCount": {
               "type": "int",
               "defaultValue": 2,
+              "minValue": 1,
               "metadata": {
                 "description": "Initial system node pool count."
               }
@@ -794,6 +797,7 @@
             "stressCpuWorkers": {
               "type": "int",
               "defaultValue": 4,
+              "minValue": 1,
               "metadata": {
                 "description": "CPU workers for polinux/stress (see image docs)."
               }
@@ -1091,7 +1095,6 @@
         }
       },
       "dependsOn": [
-        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgName')), 'Microsoft.Resources/deployments', format('{0}-acr-module', parameters('prefix')))]",
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgName')), 'Microsoft.Resources/deployments', format('{0}-aks-module', parameters('prefix')))]",
         "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('rgName'))]"
       ]

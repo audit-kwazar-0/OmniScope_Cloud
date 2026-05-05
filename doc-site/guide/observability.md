@@ -8,8 +8,8 @@
 
 Custom app metrics emitted by services:
 
-- `streamforge_processed_messages_total`
-- `streamforge_processing_errors_total`
+- `omniscope_processed_messages_total`
+- `omniscope_processing_errors_total`
 
 ## Logs
 

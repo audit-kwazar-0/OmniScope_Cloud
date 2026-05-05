@@ -1,0 +1,6 @@
+{
+  "description": "Initial OmniScope load-test baseline for p95 regression checks.",
+  "p95_ms": 300,
+  "error_rate": 0.02,
+  "notes": "Update this baseline after validated stable runs in the target environment."
+}

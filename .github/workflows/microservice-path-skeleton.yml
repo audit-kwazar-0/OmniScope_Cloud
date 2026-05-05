@@ -1,0 +1,32 @@
+# Скелет отдельного pipeline на микросервис: триггер только по путям + вызов reusable build/push.
+# Скопируйте файл под имя сервиса и поправьте paths / image_repository.
+
+name: 'Microservice — service-a (path skeleton)'
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'examples/kubernetes/apps/service-a.yaml'
+      # - 'examples/services/service-a/**'
+  pull_request:
+    paths:
+      - 'examples/kubernetes/apps/service-a.yaml'
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build-push:
+    uses: ./.github/workflows/reusable-build-push-skeleton.yml
+    with:
+      image_repository: omniscope/service-a
+      docker_context: examples/kubernetes/apps
+      image_tag: ${{ github.sha }}
+    secrets: inherit
+
+  # deploy отдельным job при merge в main (или в другом workflow с needs: build-push)
+  # deploy:
+  #   needs: [build-push]
+  #   uses: ./.github/workflows/... # или steps с kubectl

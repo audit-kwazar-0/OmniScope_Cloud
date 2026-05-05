@@ -17,9 +17,10 @@ param aksName string = '${prefix}-aks'
 param aksDnsPrefix string = '${prefix}-aks'
 
 @description('System node pool VM size.')
-param systemVmSize string = 'Standard_D4s_v5'
+param systemVmSize string = 'Standard_B2s_v2'
 
 @description('Initial system node pool count.')
+@minValue(1)
 param systemNodeCount int = 2
 
 @description('OS disk size for system pool (GB).')
@@ -29,6 +30,7 @@ param systemOsDiskSizeGB int = 100
 param deployCpuStress bool = true
 
 @description('CPU workers for polinux/stress (see image docs).')
+@minValue(1)
 param stressCpuWorkers int = 4
 
 @description('Force redeploy of the post-install deploymentScript (change to rerun kubectl apply).')
@@ -131,7 +133,7 @@ resource aksContributorAssignment 'Microsoft.Authorization/roleAssignments@2022-
       'Microsoft.Authorization/roleDefinitions',
       aksContributorRoleDefinitionId
     )
-    principalId: deployerIdentity.properties.principalId
+    principalId: deployerIdentity!.properties.principalId
     principalType: 'ServicePrincipal'
   }
 }
@@ -241,9 +243,9 @@ echo "Done."
 
 output aksName string = deployCluster ? aks.name : ''
 output aksId string = deployCluster ? aks.id : ''
-output aksFqdn string = deployCluster ? aks.properties.fqdn : ''
+output aksFqdn string = deployCluster ? aks!.properties.fqdn : ''
 output vnetId string = deployCluster ? vnet.id : ''
 output privateEndpointsSubnetId string = deployCluster ? '${vnet.id}/subnets/private-endpoints' : ''
 output deployerIdentityId string = deployCluster ? deployerIdentity.id : ''
 @description('Kubelet managed identity object id — use for AcrPull role assignment on ACR.')
-output kubeletObjectId string = deployCluster ? aks.properties.identityProfile.kubeletidentity.objectId : ''
+output kubeletObjectId string = deployCluster ? aks!.properties.identityProfile.kubeletidentity.objectId : ''

@@ -44,12 +44,14 @@ param deployAksDiagnostics bool = true
 param acrNameOverride string = ''
 
 @description('AKS node pool VM size for the system pool.')
-param aksSystemVmSize string = 'Standard_D4s_v5'
+param aksSystemVmSize string = 'Standard_B2s_v2'
 
 @description('AKS system pool node count (test default).')
+@minValue(1)
 param aksSystemNodeCount int = 2
 
 @description('CPU workers for polinux/stress in loadtest deployment.')
+@minValue(1)
 param stressCpuWorkers int = 4
 
 @description('Force rerun of the AKS post-install kubectl deployment (any new string triggers update).')
@@ -65,7 +67,7 @@ var actionGroupName = '${prefix}-ag'
 var azureMonitorWorkspaceName = '${prefix}-amw'
 var grafanaName = take('${prefix}grafana', 23)
 var eventHubNamespaceName = take(replace('${prefix}ehns', '-', ''), 50)
-var eventHubName = 'streamforge-logs'
+var eventHubName = 'omniscope-logs'
 
 resource rg 'Microsoft.Resources/resourceGroups@2021-04-01' = {
   name: rgName
@@ -93,9 +95,6 @@ module observabilityBase 'modules/observability-base.bicep' = {
     eventHubName: eventHubName
     teamsWebhookUri: teamsWebhookUri
   }
-  dependsOn: [
-    rg
-  ]
 }
 
 module acr 'modules/acr.bicep' = if (deployAks && deployAcr) {
@@ -106,9 +105,6 @@ module acr 'modules/acr.bicep' = if (deployAks && deployAcr) {
     acrName: acrRegistryName
     tags: tags
   }
-  dependsOn: [
-    rg
-  ]
 }
 
 module aks 'modules/aks.bicep' = {
@@ -126,9 +122,6 @@ module aks 'modules/aks.bicep' = {
     systemNodeCount: aksSystemNodeCount
     loadTestDeployTag: loadTestDeployTag
   }
-  dependsOn: [
-    observabilityBase
-  ]
 }
 
 module acrKubeletPull 'modules/acr-kubelet-pull.bicep' = if (deployAks && deployAcr) {
@@ -139,10 +132,6 @@ module acrKubeletPull 'modules/acr-kubelet-pull.bicep' = if (deployAks && deploy
     kubeletObjectId: aks.outputs.kubeletObjectId
     aksId: aks.outputs.aksId
   }
-  dependsOn: [
-    acr
-    aks
-  ]
 }
 
 module aksDiagnostics 'modules/aks-diagnostics.bicep' = if (deployAks && deployAksDiagnostics) {
@@ -153,10 +142,6 @@ module aksDiagnostics 'modules/aks-diagnostics.bicep' = if (deployAks && deployA
     lawId: observabilityBase.outputs.lawId
     deployDiagnostics: true
   }
-  dependsOn: [
-    aks
-    observabilityBase
-  ]
 }
 
 output resourceGroupName string = rg.name
@@ -170,6 +155,6 @@ output aksName string = aks.outputs.aksName
 output aksFqdn string = aks.outputs.aksFqdn
 output vnetId string = aks.outputs.vnetId
 output privateEndpointsSubnetId string = aks.outputs.privateEndpointsSubnetId
-output acrName string = (deployAks && deployAcr) ? acr.outputs.acrName : ''
-output acrLoginServer string = (deployAks && deployAcr) ? acr.outputs.loginServer : ''
+output acrName string = (deployAks && deployAcr) ? acr!.outputs.acrName : ''
+output acrLoginServer string = (deployAks && deployAcr) ? acr!.outputs.loginServer : ''
 

@@ -1,0 +1,96 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: loki-config
+  namespace: omniscope
+data:
+  loki.yaml: |
+    auth_enabled: false
+
+    server:
+      http_listen_port: 3100
+
+    common:
+      path_prefix: /loki
+      replication_factor: 1
+      ring:
+        kvstore:
+          store: inmemory
+
+    schema_config:
+      configs:
+        - from: 2025-01-01
+          store: boltdb-shipper
+          object_store: azure
+          schema: v13
+          index:
+            prefix: loki_index_
+            period: 24h
+
+    storage_config:
+      boltdb_shipper:
+        active_index_directory: /loki/index
+        cache_location: /loki/index_cache
+        cache_ttl: 24h
+      azure:
+        account_name: ${AZURE_STORAGE_ACCOUNT_NAME}
+        account_key: ${AZURE_STORAGE_ACCOUNT_KEY}
+        container_name: ${LOKI_AZURE_CONTAINER}
+        request_timeout: 30s
+
+    compactor:
+      working_directory: /loki/compactor
+      compaction_interval: 10m
+      retention_enabled: true
+      delete_request_store: azure
+
+    frontend:
+      max_outstanding_per_tenant: 8192
+
+    limits_config:
+      retention_period: 168h
+      reject_old_samples: true
+      reject_old_samples_max_age: 168h
+      split_queries_by_interval: 15m
+      max_query_parallelism: 8
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: promtail-config
+  namespace: omniscope
+data:
+  promtail.yaml: |
+    server:
+      http_listen_port: 3101
+      grpc_listen_port: 0
+
+    positions:
+      filename: /run/promtail/positions.yaml
+
+    clients:
+      - url: http://loki:3100/loki/api/v1/push
+
+    scrape_configs:
+      - job_name: kubernetes-pods
+        pipeline_stages:
+          - cri: {}
+          - regex:
+              source: filename
+              expression: '.*/(?P<pod>[^_]+)_(?P<namespace>[^_]+)_(?P<container>.+)-.*\.log'
+          - labels:
+              pod:
+              namespace:
+              container:
+          - regex:
+              source: pod
+              expression: '^(?P<app>[a-z0-9-]+?)(?:-[a-f0-9]{9,10})?(?:-[a-z0-9]{5}|-[0-9]+)?$'
+          - labels:
+              app:
+        static_configs:
+          - targets:
+              - localhost
+            labels:
+              job: kubernetes-pods
+              __path__: /var/log/containers/*.log

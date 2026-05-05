@@ -10,7 +10,7 @@
     "deployManagedPrometheus": { "value": true },
     "deployLogExport": { "value": true },
     "aksSystemVmSize": { "value": "Standard_B2s_v2" },
-    "aksSystemNodeCount": { "value": 1 },
+    "aksSystemNodeCount": { "value": 2 },
     "stressCpuWorkers": { "value": 2 },
     "tags": { "value": { "environment": "test", "project": "omniscope", "purpose": "aks-apps" } }
   }

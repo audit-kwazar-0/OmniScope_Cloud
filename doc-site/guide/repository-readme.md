@@ -86,6 +86,8 @@ flowchart LR
 
 - Rebuilt documentation entrypoint: [`docs/README.md`](https://github.com/audit-kwazar-0/OmniScope_Cloud/blob/main/docs/README.md)
 - Project story (philosophy + implementation narrative): [`docs/PROJECT_STORY.md`](https://github.com/audit-kwazar-0/OmniScope_Cloud/blob/main/docs/PROJECT_STORY.md)
+- Future project vision (goals + roadmap): [`docs/PROJECT_VISION.md`](https://github.com/audit-kwazar-0/OmniScope_Cloud/blob/main/docs/PROJECT_VISION.md)
+- Project execution plan 30/60/90 (KPI + risks + milestones): [`docs/PROJECT_PLAN_30_60_90.md`](https://github.com/audit-kwazar-0/OmniScope_Cloud/blob/main/docs/PROJECT_PLAN_30_60_90.md)
 - Deployment runbook (`create -> deploy -> verify -> cleanup`): [`docs/DEPLOYMENT_RUNBOOK.md`](https://github.com/audit-kwazar-0/OmniScope_Cloud/blob/main/docs/DEPLOYMENT_RUNBOOK.md)
 - Evidence and screenshot checklist: [`docs/EVIDENCE.md`](https://github.com/audit-kwazar-0/OmniScope_Cloud/blob/main/docs/EVIDENCE.md)
 - Grafana import template: [`docs/grafana-dashboard.json`](https://github.com/audit-kwazar-0/OmniScope_Cloud/blob/main/docs/grafana-dashboard.json)

@@ -38,6 +38,8 @@ OmniScope_Cloud/
 
 1. Deploy baseline with Bicep (includes AKS + ACR + kubelet **AcrPull** when defaults are used).
 2. Build and push images, apply manifests — full flow: [`examples/README.md`](./examples/README.md) and [`examples/docs/AKS-ACR-CICD.md`](./examples/docs/AKS-ACR-CICD.md).
+3. One-command full flow (infra + apps + smoke): [`scripts/deploy-project.sh`](./scripts/deploy-project.sh) with [`.env.deploy.example`](./.env.deploy.example).
+4. Optional in-cluster Alertmanager deploy: [`examples/kubernetes/alertmanager/`](./examples/kubernetes/alertmanager/) + [`scripts/create-alertmanager-secret.sh`](./scripts/create-alertmanager-secret.sh).
 
 ### Azure baseline (Bicep)
 
@@ -78,9 +80,18 @@ flowchart LR
 
 - Rebuilt documentation entrypoint: [`docs/README.md`](./docs/README.md)
 - Project story (philosophy + implementation narrative): [`docs/PROJECT_STORY.md`](./docs/PROJECT_STORY.md)
+- Future project vision (goals + roadmap): [`docs/PROJECT_VISION.md`](./docs/PROJECT_VISION.md)
+- Project execution plan 30/60/90 (KPI + risks + milestones): [`docs/PROJECT_PLAN_30_60_90.md`](./docs/PROJECT_PLAN_30_60_90.md)
+- Load test + Service Mesh validation checklist: [`docs/LOAD_TEST_AND_SERVICE_MESH_VALIDATION.md`](./docs/LOAD_TEST_AND_SERVICE_MESH_VALIDATION.md)
+- k6 baseline script: [`tests/load/k6-omniscope.js`](./tests/load/k6-omniscope.js)
+- Load-test baseline policy: [`docs/LOAD_TEST_BASELINE.md`](./docs/LOAD_TEST_BASELINE.md)
 - Deployment runbook (`create -> deploy -> verify -> cleanup`): [`docs/DEPLOYMENT_RUNBOOK.md`](./docs/DEPLOYMENT_RUNBOOK.md)
 - Evidence and screenshot checklist: [`docs/EVIDENCE.md`](./docs/EVIDENCE.md)
-- Grafana import template: [`docs/grafana-dashboard.json`](./docs/grafana-dashboard.json)
+- Grafana dashboards:
+  - [`docs/grafana-dashboard.json`](./docs/grafana-dashboard.json) (OmniScope Baseline)
+  - [`docs/grafana-alerting-dashboard.json`](./docs/grafana-alerting-dashboard.json) (OmniScope Alerting)
+  - [`docs/grafana-platform-health-dashboard.json`](./docs/grafana-platform-health-dashboard.json) (OmniScope Platform Health)
+  - [`docs/grafana-dashboard0.json`](./docs/grafana-dashboard0.json) (OmniScope NOC Loki)
 
 ### Documentation site
 

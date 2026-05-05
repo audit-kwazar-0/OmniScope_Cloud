@@ -141,8 +141,8 @@ func main() {
 		Timeout:   15 * time.Second,
 	}
 	meter := otel.Meter(serviceName)
-	processedCounter, _ := meter.Int64Counter("streamforge_processed_messages_total", metric.WithDescription("Total processed StreamForge-like messages"))
-	errorCounter, _ := meter.Int64Counter("streamforge_processing_errors_total", metric.WithDescription("Total processing errors in StreamForge-like handlers"))
+	processedCounter, _ := meter.Int64Counter("omniscope_processed_messages_total", metric.WithDescription("Total processed OmniScope messages"))
+	errorCounter, _ := meter.Int64Counter("omniscope_processing_errors_total", metric.WithDescription("Total processing errors in OmniScope handlers"))
 
 	r.GET("/health", func(c *gin.Context) {
 		c.Status(http.StatusOK)

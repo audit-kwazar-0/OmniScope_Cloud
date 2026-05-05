@@ -1,0 +1,68 @@
+name: 'Load test — k6'
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'Target URL for service-a (e.g. https://example/ or http://host:8081)'
+        required: true
+        default: 'http://localhost:8081'
+      compare_baseline:
+        description: 'Fail workflow if p95 regresses beyond allowed percentage'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+        default: 'true'
+  schedule:
+    - cron: '30 3 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  k6:
+    runs-on: ubuntu-latest
+    env:
+      BASE_URL: ${{ inputs.base_url || vars.LOAD_TEST_BASE_URL }}
+      COMPARE_BASELINE: ${{ inputs.compare_baseline || 'true' }}
+      ALLOW_REGRESSION_PERCENT: ${{ vars.LOAD_TEST_ALLOW_REGRESSION_PERCENT || '10' }}
+      RUN_ID: gh-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install -y k6 jq
+
+      - name: Validate BASE_URL
+        run: |
+          set -euo pipefail
+          if [ -z "${BASE_URL:-}" ]; then
+            echo "Set input.base_url or repository variable LOAD_TEST_BASE_URL"
+            exit 1
+          fi
+          echo "Load test target: $BASE_URL"
+
+      - name: Run k6 load test
+        run: |
+          set -euo pipefail
+          BASE_URL="$BASE_URL" \
+          COMPARE_BASELINE="$COMPARE_BASELINE" \
+          ALLOW_REGRESSION_PERCENT="$ALLOW_REGRESSION_PERCENT" \
+          RUN_ID="$RUN_ID" \
+          ./scripts/run-load-test.sh
+
+      - name: Upload load-test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-results-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            tests/load/results/*.json
+            tests/load/baseline.json

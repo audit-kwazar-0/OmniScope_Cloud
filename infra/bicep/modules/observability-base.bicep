@@ -215,11 +215,11 @@ resource cpuHighAlert 'Microsoft.Insights/scheduledQueryRules@2023-12-01' = {
 }
 
 resource appErrorsAlert 'Microsoft.Insights/scheduledQueryRules@2023-12-01' = {
-  name: '${actionGroupName}-streamforge-errors'
+  name: '${actionGroupName}-omniscope-errors'
   location: location
   tags: tags
   properties: {
-    description: 'StreamForge error ratio > 5% for last 10 minutes'
+    description: 'OmniScope error ratio > 5% for last 10 minutes'
     enabled: true
     severity: 2
     evaluationFrequency: 'PT5M'
