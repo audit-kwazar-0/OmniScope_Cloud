@@ -65,6 +65,8 @@ To deploy **AKS without** a new registry (bring your own ACR or public images on
 
 ### Documentation site
 
+**Live docs (GitHub Pages):** [https://audit-kwazar-0.github.io/OmniScope_Cloud/](https://audit-kwazar-0.github.io/OmniScope_Cloud/)
+
 Sources live under [`doc-site/`](https://github.com/audit-kwazar-0/OmniScope_Cloud/blob/main/doc-site/) (VitePress). **Local preview:**
 
 ```bash
@@ -73,7 +75,7 @@ npm ci
 npm run docs:dev
 ```
 
-**GitHub Pages** (Settings → Pages → **Source: GitHub Actions**): workflow [`.github/workflows/deploy-docs.yml`](https://github.com/audit-kwazar-0/OmniScope_Cloud/blob/main/.github/workflows/deploy-docs.yml) builds on every push to `main` that touches `doc-site/`. The published URL is `https://<owner>.github.io/<repository>/` — set `VITEPRESS_BASE` in the workflow if your Pages URL uses a different path (for example user site `https://<user>.github.io/` with base `/`).
+**GitHub Pages** (Settings → Pages → **Source: GitHub Actions**): workflow [`.github/workflows/deploy-docs.yml`](https://github.com/audit-kwazar-0/OmniScope_Cloud/blob/main/.github/workflows/deploy-docs.yml) builds on every push to `main` when `doc-site/`, root `README.md`, or the workflow changes. For **project** Pages the URL is `https://<owner>.github.io/<repository>/` (this repo: link above). For a **user** site (`<user>.github.io` only) set `VITEPRESS_BASE: /` and adjust `DOCS_PUBLIC_URL` in the workflow.
 
 **Sync with this README:** the wiki page [`repository-readme`](https://github.com/audit-kwazar-0/OmniScope_Cloud/blob/main/doc-site/wiki/repository-readme.md) is regenerated from the root **README.md** by `doc-site/scripts/sync-readme.mjs` before `docs:dev` / `docs:build` (relative links are rewritten to `github.com/<repo>/blob/main/...` when `GITHUB_REPOSITORY` or `git remote` is available). Edit **README.md** here; do not hand-edit the generated wiki file.
 

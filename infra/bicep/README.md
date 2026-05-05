@@ -15,7 +15,35 @@ Deploys a minimal Azure Observability foundation:
 - Azure CLI installed
 - Authenticated session: `az login`
 
-## Deploy
+## Deploy & debug (скрипт)
+
+1. Скопируйте параметры и подставьте свой e-mail и префикс:
+
+   ```bash
+   cp parameters.example.json parameters.local.json
+   # отредактируйте parameters.local.json (файл в .gitignore)
+   ```
+
+2. Команды из каталога `infra/bicep/`:
+
+   | Команда | Действие |
+   |---------|----------|
+   | `./deploy.sh validate` | Только `az bicep build` (без Azure) |
+   | `./deploy.sh what-if` | Сухой прогон против текущей подписки (`az login` обязателен) |
+   | `./deploy.sh deploy` | Развёртывание `az deployment sub create` |
+   | `./deploy.sh deploy-debug` | То же с `--debug` у Azure CLI |
+
+   Переменные окружения: `PARAMS_FILE`, `LOCATION`, `DEPLOYMENT_NAME`.
+
+В **Cursor / VS Code**: Command Palette → **Tasks: Run Task** → пункты **Bicep: …**.
+
+В **CI**:
+
+- [`.github/workflows/azure-connection-test.yml`](../../.github/workflows/azure-connection-test.yml) — **минимальная проверка** OIDC: только вход в Azure и `az account show` (см. «Нулевой шаг» в [`GITHUB_ACTIONS_VARIABLES.md`](./GITHUB_ACTIONS_VARIABLES.md)).
+- [`.github/workflows/infra-bicep.yml`](../../.github/workflows/infra-bicep.yml) — `az bicep build` при изменениях в `infra/bicep/` (без Azure).
+- [`.github/workflows/infra-bicep-what-if.yml`](../../.github/workflows/infra-bicep-what-if.yml) — вручную **What-If** в подписке (OIDC). Список Variables/Secrets: **[`GITHUB_ACTIONS_VARIABLES.md`](./GITHUB_ACTIONS_VARIABLES.md)**.
+
+## Deploy (вручную через CLI)
 
 Example:
 
@@ -26,6 +54,16 @@ az deployment sub create \
   --parameters \
     prefix="omniscope-obs-test" \
     alertEmail="oncall@example.com"
+```
+
+С файлом параметров:
+
+```bash
+az deployment sub create \
+  --location westeurope \
+  --name omniscope-deploy-1 \
+  --template-file ./main.bicep \
+  --parameters @parameters.local.json
 ```
 
 ### Parameters

@@ -1,0 +1,78 @@
+# Subscription-level Bicep what-if using OIDC (no client secret).
+# Prerequisites: repository Variables (and optional Secret) — см. infra/bicep/GITHUB_ACTIONS_VARIABLES.md
+
+name: 'Infra — Bicep what-if (Azure)'
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  ARM_TEMPLATE: infra/bicep/main.bicep
+
+jobs:
+  what-if:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check required configuration
+        env:
+          SUB: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          TENANT: ${{ vars.AZURE_TENANT_ID }}
+          CLIENT: ${{ vars.AZURE_CLIENT_ID }}
+          PREFIX: ${{ vars.BICEP_PREFIX }}
+          LOC: ${{ vars.BICEP_LOCATION }}
+        run: |
+          set -e
+          for name in SUB TENANT CLIENT PREFIX LOC; do
+            eval "v=\${$name}"
+            if [ -z "$v" ]; then
+              echo "Missing repository variable (see infra/bicep/GITHUB_ACTIONS_VARIABLES.md): $name"
+              exit 1
+            fi
+          done
+          echo "Required vars present."
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Bicep build
+        run: az bicep build --file "$ARM_TEMPLATE"
+
+      - name: Deployment what-if
+        env:
+          DEPLOY_AKS: ${{ vars.BICEP_DEPLOY_AKS }}
+          DEPLOY_ACR: ${{ vars.BICEP_DEPLOY_ACR }}
+          ALERT_SECRET: ${{ secrets.BICEP_ALERT_EMAIL }}
+          ALERT_VAR: ${{ vars.BICEP_ALERT_EMAIL }}
+        run: |
+          set -euo pipefail
+          ALERT="${ALERT_SECRET:-}"
+          if [ -z "$ALERT" ]; then ALERT="${ALERT_VAR:-}"; fi
+          if [ -z "$ALERT" ]; then
+            echo "Set BICEP_ALERT_EMAIL as a repository Variable or Secret."
+            exit 1
+          fi
+          AKS="${DEPLOY_AKS:-false}"
+          ACR="${DEPLOY_ACR:-false}"
+          NAME="gh-whatif-${{ github.run_id }}-${{ github.run_attempt }}"
+          az deployment sub what-if \
+            --location "${{ vars.BICEP_LOCATION }}" \
+            --name "$NAME" \
+            --template-file "$ARM_TEMPLATE" \
+            --no-pretty-print \
+            --parameters \
+              prefix="${{ vars.BICEP_PREFIX }}" \
+              location="${{ vars.BICEP_LOCATION }}" \
+              alertEmail="$ALERT" \
+              deployAks="$AKS" \
+              deployAcr="$ACR"

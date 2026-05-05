@@ -1,0 +1,40 @@
+# Минимальная проверка: GitHub Actions → Azure (OIDC), без Bicep и без деплоя.
+# Запуск: Actions → "Azure — connection test" → Run workflow.
+
+name: 'Azure — connection test'
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  verify-azure-login:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Проверка Variables
+        env:
+          AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+        run: |
+          set -euo pipefail
+          : "${AZURE_SUBSCRIPTION_ID:?Задайте repository Variable AZURE_SUBSCRIPTION_ID (см. GITHUB_ACTIONS_VARIABLES.md)}"
+          : "${AZURE_TENANT_ID:?Задайте repository Variable AZURE_TENANT_ID}"
+          : "${AZURE_CLIENT_ID:?Задайте repository Variable AZURE_CLIENT_ID}"
+          echo "Три Azure Variables на месте."
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Подписка активна
+        run: |
+          echo "=== az account show ==="
+          az account show --output table
+          echo "=== OK: GitHub достиг Azure ==="

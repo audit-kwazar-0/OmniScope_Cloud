@@ -4,6 +4,20 @@ import { defineConfig } from 'vitepress'
 // Local preview: omit env → base '/'.
 const base = process.env.VITEPRESS_BASE || '/'
 
+/** Public site origin (no trailing slash). CI sets DOCS_PUBLIC_URL; fallback — ваш project Pages. */
+const docsPublicUrl = (process.env.DOCS_PUBLIC_URL || 'https://audit-kwazar-0.github.io/OmniScope_Cloud').replace(
+  /\/$/,
+  '',
+)
+
+function githubRepoUrlFromPagesOrigin(pagesUrl: string): string {
+  const m = pagesUrl.match(/^https:\/\/([^.]+)\.github\.io\/([^/]+)$/)
+  if (m) {
+    return `https://github.com/${m[1]}/${m[2]}`
+  }
+  return 'https://github.com/audit-kwazar-0/OmniScope_Cloud'
+}
+
 const wikiSidebar = [
   {
     text: 'Вики OmniScope',
@@ -55,10 +69,10 @@ export default defineConfig({
     search: {
       provider: 'local',
     },
-    socialLinks: [],
+    socialLinks: [{ icon: 'github', link: githubRepoUrlFromPagesOrigin(docsPublicUrl) }],
     footer: {
-      message: 'OmniScope Cloud · внутренняя документация',
-      copyright: 'См. репозиторий OmniScope_Cloud',
+      message: `OmniScope Cloud · сайт документации: ${docsPublicUrl}/`,
+      copyright: 'Исходники — репозиторий GitHub (иконка справа снизу)',
     },
   },
 })

@@ -30,6 +30,7 @@ pnpm-debug.log*
 # --- Azure / Bicep (optional local params) ---
 *.parameters.local.json
 **/azuredeploy.parameters.local.json
+infra/bicep/parameters.local.json
 
 # --- Build & caches ---
 dist/

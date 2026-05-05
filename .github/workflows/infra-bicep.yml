@@ -1,0 +1,25 @@
+# Validate Bicep on every change (no Azure credentials required).
+
+name: Infra — Bicep validate
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'infra/bicep/**'
+      - '.github/workflows/infra-bicep.yml'
+  pull_request:
+    paths:
+      - 'infra/bicep/**'
+      - '.github/workflows/infra-bicep.yml'
+  workflow_dispatch:
+
+jobs:
+  bicep-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Bicep build
+        run: az bicep build --file infra/bicep/main.bicep

@@ -1,0 +1,12 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "prefix": { "value": "omniscope-obs-test" },
+    "location": { "value": "westeurope" },
+    "alertEmail": { "value": "oncall@example.com" },
+    "deployAks": { "value": false },
+    "deployAcr": { "value": false },
+    "tags": { "value": { "environment": "test", "project": "omniscope" } }
+  }
+}
