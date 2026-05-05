@@ -1,0 +1,158 @@
+# Единая точка ручного запуска: вкладка Actions → этот workflow → Run workflow (обязательно выберите слева).
+# Переменные и секреты: infra/bicep/GITHUB_ACTIONS_VARIABLES.md, Environment **bicep**.
+
+name: Run pipeline — Bicep & Azure
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Режим
+        type: choice
+        options:
+          - bicep_validate
+          - azure_connection
+          - subscription_what_if
+        default: bicep_validate
+      deploy_aks:
+        description: 'Только для subscription_what_if (иначе игнорируется). deployAks.'
+        type: choice
+        options:
+          - use-variable
+          - 'true'
+          - 'false'
+        default: use-variable
+      deploy_acr:
+        description: 'Только для subscription_what_if. deployAcr.'
+        type: choice
+        options:
+          - use-variable
+          - 'true'
+          - 'false'
+        default: use-variable
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  ARM_TEMPLATE: infra/bicep/main.bicep
+
+jobs:
+  bicep-compile:
+    name: Compile Bicep (no secrets)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ensure Bicep CLI
+        run: az bicep version 2>/dev/null || az bicep install
+      - name: Build main.bicep
+        run: az bicep build --file "$ARM_TEMPLATE"
+
+  azure-oidc:
+    name: Azure login — OIDC
+    needs: [bicep-compile]
+    if: >-
+      ${{ github.event_name == 'workflow_dispatch'
+      && inputs.action != 'bicep_validate' }}
+    runs-on: ubuntu-latest
+    environment: bicep
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Secrets present (OIDC)
+        env:
+          SUB: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          TENANT: ${{ secrets.AZURE_TENANT_ID }}
+          CLIENT: ${{ secrets.AZURE_CLIENT_ID }}
+        run: |
+          set -euo pipefail
+          for name in SUB TENANT CLIENT; do
+            eval "v=\${$name}"
+            if [ -z "${v:-}" ]; then
+              echo "::error::Нет секрета для $name. Environment **bicep** или Repository secrets."
+              exit 1
+            fi
+          done
+          echo "AZURE_* secrets OK."
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Subscription
+        run: az account show --output table
+
+  subscription-what-if:
+    name: az deployment sub what-if
+    needs: [azure-oidc]
+    if: >-
+      ${{ github.event_name == 'workflow_dispatch'
+      && inputs.action == 'subscription_what_if' }}
+    runs-on: ubuntu-latest
+    environment: bicep
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Required Bicep configuration
+        env:
+          PREFIX: ${{ vars.BICEP_PREFIX }}
+          LOC: ${{ vars.BICEP_LOCATION }}
+        run: |
+          set -e
+          [ -n "${PREFIX:-}" ] || { echo "::error::Задайте Variable BICEP_PREFIX"; exit 1; }
+          [ -n "${LOC:-}" ] || { echo "::error::Задайте Variable BICEP_LOCATION"; exit 1; }
+          echo "BICEP_PREFIX / LOCATION OK."
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Bicep build
+        run: az bicep build --file "$ARM_TEMPLATE"
+
+      - name: Deployment what-if
+        env:
+          INPUT_DEPLOY_AKS: ${{ inputs.deploy_aks }}
+          INPUT_DEPLOY_ACR: ${{ inputs.deploy_acr }}
+          DEPLOY_AKS: ${{ vars.BICEP_DEPLOY_AKS }}
+          DEPLOY_ACR: ${{ vars.BICEP_DEPLOY_ACR }}
+          ALERT_SECRET: ${{ secrets.BICEP_ALERT_EMAIL }}
+          ALERT_VAR: ${{ vars.BICEP_ALERT_EMAIL }}
+        run: |
+          set -euo pipefail
+          ALERT="${ALERT_SECRET:-}"
+          if [ -z "$ALERT" ]; then ALERT="${ALERT_VAR:-}"; fi
+          if [ -z "$ALERT" ]; then
+            echo "::error::Нужна Variable или Secret BICEP_ALERT_EMAIL"
+            exit 1
+          fi
+          if [ "${INPUT_DEPLOY_AKS}" = "use-variable" ]; then
+            AKS="${DEPLOY_AKS:-false}"
+          else
+            AKS="${INPUT_DEPLOY_AKS}"
+          fi
+          if [ "${INPUT_DEPLOY_ACR}" = "use-variable" ]; then
+            ACR="${DEPLOY_ACR:-false}"
+          else
+            ACR="${INPUT_DEPLOY_ACR}"
+          fi
+          echo "deployAks=$AKS deployAcr=$ACR"
+          NAME="gh-whatif-${{ github.run_id }}-${{ github.run_attempt }}"
+          az deployment sub what-if \
+            --location "${{ vars.BICEP_LOCATION }}" \
+            --name "$NAME" \
+            --template-file "$ARM_TEMPLATE" \
+            --no-pretty-print \
+            --parameters \
+              prefix="${{ vars.BICEP_PREFIX }}" \
+              location="${{ vars.BICEP_LOCATION }}" \
+              alertEmail="$ALERT" \
+              deployAks="$AKS" \
+              deployAcr="$ACR"

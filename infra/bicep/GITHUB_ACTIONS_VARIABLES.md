@@ -17,20 +17,29 @@
 
 ## Где кнопка **Run workflow** и почему её может не быть
 
-1. **Откройте именно список workflow слева.** Вкладка **Actions** → в **левой колонке** нажмите **название workflow** (например **Azure — connection test**), а не только общий вид «All workflows». Справа сверху появится зелёная кнопка **Run workflow** и выбор ветки.
-2. **Ручной запуск бывает только при `workflow_dispatch`.** В репозитории workflow с только `push` / `pull_request` / `schedule` **не показывают** Run — они стартуют только от события. Исключение: вы смотрите **переиспользуемый** workflow (`on: workflow_call`) — он **никогда** не запускается кнопкой с UI, его вызывает другой workflow (например **Reusable — build & push (skeleton)**).
-3. **Файл workflow должен быть в default branch.** Если `workflow_dispatch` добавлен только в feature-ветке и не смержен в `main`/`master`, на default branch кнопки для этой версии YAML не будет.
-4. **Права:** для Run нужны права на запуск Actions (обычно **Write** в репозитории). У **Read-only** и у гостей кнопки нет.
-5. **Форк:** в настройках форка Actions могут быть отключены — тогда список пустой или запуски запрещены политикой.
+1. **Откройте именно страницу одного workflow (не просто журнал всех запусков).**  
+   - Вариант А: вкладка **Actions** → в **левой колонке** выберите строку с **названием workflow**, например **Azure — connection test** или **Manual — self-test (dispatch only)** → справа появится **Run workflow** и выбор ветки.  
+   - Вариант Б (прямая ссылка): `https://github.com/<ORG>/<REPO>/actions/workflows/<имя-файла.yml>` — например `.../actions/workflows/run-pipeline.yml` (основной ручной пайплайн) или `.../actions/workflows/teardown-skeleton.yml`. На этой странице кнопка обычно справа **над списком** прошлых запусков.  
+   Если вы остаетесь только на общем виде `/actions`, без выбора workflow слева, кнопка часто **не показывается**.
+2. **Ручной запуск бывает только при `workflow_dispatch`.** Workflow только с `push` / `pull_request` / `schedule` не дают Run. Файлы **только** с `on: workflow_call` (например **Reusable — build & push**) в общем случае **не имеют** кнопки Run — их вызывает другой workflow.
+3. **Файл с `workflow_dispatch` должен быть в default branch на GitHub.** Локально в Cursor YAML есть, но пока изменения не **push + merge в main** (или другой default branch), на сайте будет старая версия без кнопки.
+4. **Права:** для Run нужен доступ с правом изменять Actions (обычно **Write** или **Maintain** для репозитория). При **Read** кнопки нет. В организации возможны ещё **политики org**.
+5. **Actions отключены:** **Settings → Actions → General** — разрешён ли вообще **GitHub Actions** и не выключены ли отдельные workflow (рядом с именем есть «⋯» → disable).
+6. **Форк:** в своём форке **Settings → Actions** часто нужно включить выполнение вручную.
+7. **Мобильный клиент GitHub:** чрезвычайно упрощённый UI — кнопки Run там может не быть; открывайте репозиторий в браузере с ПК.
+
+**Быстрая проверка:** после merge в default branch откройте **Run pipeline — Bicep & Azure** (файл `run-pipeline.yml`), выберите режим **bicep_validate** и нажмите **Run workflow**. Если кнопки нет — см. пункты про права, default branch и настройки Actions выше.
 
 ---
 
 ## Цепочка пайплайнов (OIDC → what-if → AKS в плане)
 
-| Шаг | Workflow | Что проверяется | Чего недостаточно для следующего шага |
-|-----|----------|-----------------|--------------------------------------|
-| 1 | **Azure — connection test** | Federated credential `environment:bicep`, `AZURE_*` **Secrets**, роль на подписку, `az account show` | — |
-| 2 | **Infra — Bicep what-if** | То же OIDC + параметры Bicep + `az deployment sub what-if` | Без `BICEP_*` упадёт на проверке конфигурации; без `deployAks=true` в плане **не появятся** AKS/ACR |
+**Один ручной вход:** **Run pipeline — Bicep & Azure** (`.github/workflows/run-pipeline.yml`) — режимы `bicep_validate` → `azure_connection` → `subscription_what_if`. Старые отдельные workflow (**Azure — connection test**, **Infra — Bicep what-if**) можно оставить для привычки; логика what-if совпадает.
+
+| Шаг | Workflow / режим | Что проверяется | Чего недостаточно для следующего шага |
+|-----|------------------|-----------------|--------------------------------------|
+| 1 | **Run pipeline** → `azure_connection` **или** **Azure — connection test** | Federated credential `environment:bicep`, `AZURE_*` **Secrets**, роль на подписку, `az account show` | — |
+| 2 | **Run pipeline** → `subscription_what_if` **или** **Infra — Bicep what-if** | OIDC + параметры Bicep + `az deployment sub what-if` | Без `BICEP_*` упадёт на проверке конфигурации; без `deployAks=true` в плане **не появятся** AKS/ACR |
 | 3 | Реальный деплой | Локально `./deploy.sh deploy` или отдельный CD (в репозитории пока только what-if, не `deployment sub create`) | Отдельное решение: approvals, другой workflow |
 
 **Роль приложения (Entra) на подписку:** для what-if с AKS обычно нужна та же ширина прав, что и для создания ресурсов (часто **Contributor** на тестовую подписку; только **Reader** может не хватить для корректного what-if по сложным шаблонам). Плюс квоты подписки на compute / AKS в регионе `BICEP_LOCATION`.
