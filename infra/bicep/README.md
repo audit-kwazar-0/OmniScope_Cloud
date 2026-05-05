@@ -8,6 +8,8 @@ Deploys a minimal Azure Observability foundation:
 - Azure Monitor Action Group (email receiver)
 - **Optional**: AKS cluster with Container Insights (OMS agent) wired to the Log Analytics workspace
 - **Optional**: **Azure Container Registry (ACR)** and **AcrPull** role for the AKS kubelet (so nodes can pull private images without imagePullSecrets for that registry)
+- **Optional**: Azure Monitor Workspace (Managed Prometheus) + Azure Managed Grafana
+- **Optional**: LAW Data Export to Event Hub for OpenSearch/Elastic ingestion pipeline
 - **Optional**: test CPU load workload (`polinux/stress`) deployed to `loadtest` namespace via a `deploymentScript`
 
 ## Prerequisites
@@ -22,6 +24,13 @@ Deploys a minimal Azure Observability foundation:
    ```bash
    cp parameters.example.json parameters.local.json
    # отредактируйте parameters.local.json (файл в .gitignore)
+   ```
+
+   Для **тестового AKS + ACR** (одна нода `Standard_B2s_v2`, меньше нагрузка stress) можно взять готовый профиль и при необходимости скопировать в `parameters.local.json`:
+
+   ```bash
+   cp parameters.test-aks.json parameters.local.json
+   # подставьте свой alertEmail и при желании prefix / region
    ```
 
 2. Команды из каталога `infra/bicep/`:
@@ -39,9 +48,9 @@ Deploys a minimal Azure Observability foundation:
 
 В **CI**:
 
-- [`.github/workflows/azure-connection-test.yml`](../../.github/workflows/azure-connection-test.yml) — **минимальная проверка** OIDC: только вход в Azure и `az account show` (см. «Нулевой шаг» в [`GITHUB_ACTIONS_VARIABLES.md`](./GITHUB_ACTIONS_VARIABLES.md)).
+- [`.github/workflows/azure-connection-test.yml`](../../.github/workflows/azure-connection-test.yml) — OIDC + `az account show` и **Preflight** (подсказки по `BICEP_*` для what-if; см. [`GITHUB_ACTIONS_VARIABLES.md`](./GITHUB_ACTIONS_VARIABLES.md)).
 - [`.github/workflows/infra-bicep.yml`](../../.github/workflows/infra-bicep.yml) — `az bicep build` при изменениях в `infra/bicep/` (без Azure).
-- [`.github/workflows/infra-bicep-what-if.yml`](../../.github/workflows/infra-bicep-what-if.yml) — вручную **What-If** в подписке (OIDC). Список Variables/Secrets: **[`GITHUB_ACTIONS_VARIABLES.md`](./GITHUB_ACTIONS_VARIABLES.md)**.
+- [`.github/workflows/infra-bicep-what-if.yml`](../../.github/workflows/infra-bicep-what-if.yml) — вручную **What-If** (OIDC); при запуске можно выбрать **deploy_aks / deploy_acr = true** без смены Variables. Список имён: **[`GITHUB_ACTIONS_VARIABLES.md`](./GITHUB_ACTIONS_VARIABLES.md)**.
 
 ## Deploy (вручную через CLI)
 
@@ -75,6 +84,10 @@ az deployment sub create \
 - `appInsightsRetentionDays`: default `90`
 - `deployAks`: deploy AKS + sample load workload (default `true`)
 - `deployAcr`: when `true` and `deployAks` is `true`, create **ACR** and assign **AcrPull** to the cluster kubelet (default `true`)
+- `deployAksDiagnostics`: when `true` and `deployAks` is `true`, enable AKS control-plane diagnostics to LAW (`kube-apiserver`, `kube-audit`, etc.) (default `true`)
+- `deployManagedPrometheus`: deploy Azure Monitor Workspace + Managed Grafana (default `true`)
+- `deployLogExport`: deploy LAW Data Export to Event Hub (for OpenSearch/Elastic downstream) (default `true`)
+- `teamsWebhookUri`: optional webhook URL for Action Group simulation (MS Teams)
 - `acrNameOverride`: optional ACR name (letters and digits only, 5–50 chars, globally unique). If empty, a name is derived from `uniqueString`
 - `aksSystemVmSize`: VM size for AKS system pool (default `Standard_D4s_v5`)
 - `aksSystemNodeCount`: node count for AKS system pool (default `2`)
@@ -84,9 +97,14 @@ az deployment sub create \
 ### Outputs (when AKS / ACR are deployed)
 
 - `acrLoginServer`, `acrName` — use with `docker tag` / `docker push` and with [`examples/kubernetes/`](../examples/kubernetes/) manifests (`__ACR_LOGIN_SERVER__` placeholder).
+- `grafanaUrl`, `azureMonitorWorkspaceId` — Managed Prometheus/Grafana integration endpoints.
+- `eventHubId` — export entry point for OpenSearch/Elastic ingestion.
+- `vnetId`, `privateEndpointsSubnetId` — network references for private endpoint extension.
 
 ### Notes
 
 - The load test is intentionally noisy (CPU stress). Keep it in non-prod subscriptions/resource groups.
 - The template creates a **User Assigned Identity** used only by the post-install `deploymentScript` and grants it **Azure Kubernetes Service Contributor Role** on the AKS cluster resource (needed for admin kubeconfig + `kubectl apply`).
+- **New subscriptions:** register `Microsoft.OperationsManagement` before first AKS with Container Insights: `az provider register --namespace Microsoft.OperationsManagement --wait`.
+- **VM SKU:** some regions/subscriptions no longer offer `Standard_B2s` for AKS; `parameters.test-aks.json` uses **`Standard_B2s_v2`** (see Azure error `aks/quotas-skus-regions` if deploy fails on node size).
 

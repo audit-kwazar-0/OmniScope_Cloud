@@ -12,7 +12,7 @@ This document explains how **Azure Container Registry** relates to **Azure Kuber
 | **AKS** | Runs **Pods** whose containers reference `image: <registry>/<repo>:<tag>`. |
 | **Pull** | Each node must be **allowed** to pull from ACR. That is not automatic: you attach identity + **AcrPull** (or equivalent) to the **kubelet** managed identity used by the node pool. |
 
-**In this repository**, Bicep can create an ACR next to your RG, deploy AKS, then assign **AcrPull** on that registry to the cluster **kubelet** identity (`infra/bicep/main.bicep` + `modules/acr-kubelet-pull.bicep`). After that, manifests can use `image: <youracr>.azurecr.io/omniscope-service-a:1.0.0` without embedding registry credentials in Kubernetes Secrets (for this pull path).
+**In this repository**, Bicep can create an ACR next to your RG, deploy AKS, then assign **AcrPull** on that registry to the cluster **kubelet** identity (`infra/bicep/main.bicep` + `modules/acr-kubelet-pull.bicep`). After that, manifests can use `image: <youracr>.azurecr.io/omniscope/service-a:1.0.0` without embedding registry credentials in Kubernetes Secrets (for this pull path).
 
 **Alternatives** (not in Bicep here, but common):
 
@@ -60,7 +60,7 @@ Typical setup:
 **Minimal Azure Pipelines outline**
 
 - Trigger: branch `main` or PR validation.
-- Stage **Build**: pool with Docker; build context `examples/services/service-a`; push to `$(acrLoginServer)/omniscope-service-a:$(Build.BuildId)`.
+- Stage **Build**: pool with Docker; build context `examples/services/service-a`; push to `$(acrLoginServer)/omniscope/service-a:$(Build.BuildId)`.
 - Repeat for `service-b`.
 - Stage **Deploy**: `AzureCLI@2` with `az aks get-credentials` (kubelogin + Azure AD if required by your cluster), then `kubectl apply -k` or apply rendered manifests with the same `$(Build.BuildId)` tag.
 
@@ -87,16 +87,16 @@ RG="<resourceGroupName>"
 AKS="<aksName>"
 
 az acr login --name "${ACR_LOGIN_SERVER%%.azurecr.io}"
-docker build -t "${ACR_LOGIN_SERVER}/omniscope-service-a:1" examples/services/service-a
-docker push "${ACR_LOGIN_SERVER}/omniscope-service-a:1"
-docker build -t "${ACR_LOGIN_SERVER}/omniscope-service-b:1" examples/services/service-b
-docker push "${ACR_LOGIN_SERVER}/omniscope-service-b:1"
+docker build -t "${ACR_LOGIN_SERVER}/omniscope/service-a:1" examples/services/service-a
+docker push "${ACR_LOGIN_SERVER}/omniscope/service-a:1"
+docker build -t "${ACR_LOGIN_SERVER}/omniscope/service-b:1" examples/services/service-b
+docker push "${ACR_LOGIN_SERVER}/omniscope/service-b:1"
 
 az aks get-credentials --resource-group "$RG" --name "$AKS"
 
 export ACR_LOGIN_SERVER
-envsubst < examples/kubernetes/apps/service-a.yaml | kubectl apply -f -
-envsubst < examples/kubernetes/apps/service-b.yaml | kubectl apply -f -
+sed "s|__ACR_LOGIN_SERVER__|${ACR_LOGIN_SERVER}|g" examples/kubernetes/apps/service-a.yaml | kubectl apply -f -
+sed "s|__ACR_LOGIN_SERVER__|${ACR_LOGIN_SERVER}|g" examples/kubernetes/apps/service-b.yaml | kubectl apply -f -
 ```
 
 If you do not use `envsubst`, use `sed` as described in `examples/README.md`.

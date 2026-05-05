@@ -21,11 +21,24 @@ param tags object = {}
 @description('Action Group short name (SMS limitation, max 12 chars).')
 param actionGroupShortName string = 'obs-pzu'
 
+@description('If true, deploy Azure Monitor workspace + Managed Grafana for Managed Prometheus.')
+param deployManagedPrometheus bool = true
+
+@description('If true, deploy Event Hub log export path for OpenSearch/Elastic ingestion.')
+param deployLogExport bool = true
+
+@description('Optional Teams webhook URL for simulated notifications in Action Group.')
+@secure()
+param teamsWebhookUri string = ''
+
 @description('If true, deploy AKS cluster with a sample CPU stress workload in namespace loadtest.')
 param deployAks bool = true
 
 @description('If true (and deployAks), create Azure Container Registry and grant kubelet AcrPull.')
 param deployAcr bool = true
+
+@description('If true (and deployAks), enable AKS control-plane diagnostic settings to LAW.')
+param deployAksDiagnostics bool = true
 
 @description('ACR name: 5–50 characters, letters and numbers only, globally unique. Leave empty for an auto-generated name.')
 param acrNameOverride string = ''
@@ -49,6 +62,10 @@ var acrRegistryName = !empty(acrNameOverride)
 var lawName = '${prefix}-law'
 var appInsightsName = '${prefix}-appi'
 var actionGroupName = '${prefix}-ag'
+var azureMonitorWorkspaceName = '${prefix}-amw'
+var grafanaName = take('${prefix}grafana', 23)
+var eventHubNamespaceName = take(replace('${prefix}ehns', '-', ''), 50)
+var eventHubName = 'streamforge-logs'
 
 resource rg 'Microsoft.Resources/resourceGroups@2021-04-01' = {
   name: rgName
@@ -68,6 +85,13 @@ module observabilityBase 'modules/observability-base.bicep' = {
     actionGroupName: actionGroupName
     actionGroupShortName: actionGroupShortName
     alertEmail: alertEmail
+    deployManagedPrometheus: deployManagedPrometheus
+    azureMonitorWorkspaceName: azureMonitorWorkspaceName
+    grafanaName: grafanaName
+    deployLogExport: deployLogExport
+    eventHubNamespaceName: eventHubNamespaceName
+    eventHubName: eventHubName
+    teamsWebhookUri: teamsWebhookUri
   }
   dependsOn: [
     rg
@@ -121,12 +145,31 @@ module acrKubeletPull 'modules/acr-kubelet-pull.bicep' = if (deployAks && deploy
   ]
 }
 
+module aksDiagnostics 'modules/aks-diagnostics.bicep' = if (deployAks && deployAksDiagnostics) {
+  name: '${prefix}-aks-diagnostics'
+  scope: rg
+  params: {
+    aksName: aks.outputs.aksName
+    lawId: observabilityBase.outputs.lawId
+    deployDiagnostics: true
+  }
+  dependsOn: [
+    aks
+    observabilityBase
+  ]
+}
+
 output resourceGroupName string = rg.name
 output logAnalyticsWorkspaceId string = observabilityBase.outputs.lawId
 output applicationInsightsId string = observabilityBase.outputs.applicationInsightsId
 output actionGroupId string = observabilityBase.outputs.actionGroupId
+output azureMonitorWorkspaceId string = observabilityBase.outputs.azureMonitorWorkspaceId
+output grafanaUrl string = observabilityBase.outputs.grafanaUrl
+output eventHubId string = observabilityBase.outputs.eventHubId
 output aksName string = aks.outputs.aksName
 output aksFqdn string = aks.outputs.aksFqdn
+output vnetId string = aks.outputs.vnetId
+output privateEndpointsSubnetId string = aks.outputs.privateEndpointsSubnetId
 output acrName string = (deployAks && deployAcr) ? acr.outputs.acrName : ''
 output acrLoginServer string = (deployAks && deployAcr) ? acr.outputs.loginServer : ''
 

@@ -18,46 +18,42 @@ function githubRepoUrlFromPagesOrigin(pagesUrl: string): string {
   return 'https://github.com/audit-kwazar-0/OmniScope_Cloud'
 }
 
-const wikiSidebar = [
+const guideSidebar = [
   {
-    text: 'Вики OmniScope',
+    text: 'OmniScope Guide',
     items: [
       { text: '← Главная', link: '/' },
-      { text: 'README репозитория (sync)', link: '/wiki/repository-readme' },
-      { text: 'Обзор и потоки данных', link: '/wiki/overview' },
-      { text: 'Архитектурный фундамент', link: '/wiki/architecture-foundation' },
-      { text: 'Авто-регистрация ресурсов', link: '/wiki/auto-registration' },
-      { text: 'Full stack (IaaS / PaaS / K8s / Functions)', link: '/wiki/full-stack' },
-      { text: 'APM и распределённые трассы', link: '/wiki/apm-tracing' },
-      { text: 'Grafana multi-datasource', link: '/wiki/grafana' },
-      { text: 'Алертинг и ITSM', link: '/wiki/alerting-itsm' },
-      { text: 'IaC (Terraform)', link: '/wiki/iac-terraform' },
-      { text: 'Воркшоп', link: '/wiki/workshop' },
-      { text: 'Примеры на AKS', link: '/wiki/hands-on-examples' },
-      { text: 'Cheat-sheet операторов', link: '/wiki/appendix-operators' },
+      { text: 'README репозитория (sync)', link: '/guide/repository-readme' },
+      { text: 'Обзор платформы', link: '/guide/overview' },
+      { text: 'IaC (Bicep)', link: '/guide/iac-bicep' },
+      { text: 'Runbook деплоя', link: '/guide/deployment-runbook' },
+      { text: 'Observability модель', link: '/guide/observability' },
+      { text: 'Алерты и маршрутизация', link: '/guide/alerts' },
+      { text: 'Gateway API', link: '/guide/gateway-api' },
+      { text: 'Evidence / DoD', link: '/guide/evidence' },
     ],
   },
 ]
 
 export default defineConfig({
   base,
-  title: 'OmniScope Wiki',
-  description: 'Эталонная Observability-платформа для PZU в Azure',
+  title: 'OmniScope Docs',
+  description: 'AKS + Bicep + Observability (Azure Monitor, App Insights, Grafana)',
   lang: 'ru-RU',
   appearance: 'force-dark',
   themeConfig: {
     nav: [
       { text: 'Главная', link: '/' },
-      { text: 'Вики', link: '/wiki/overview', activeMatch: '/wiki/' },
+      { text: 'Guide', link: '/guide/overview', activeMatch: '/guide/' },
     ],
     sidebar: {
-      '/wiki/': wikiSidebar,
+      '/guide/': guideSidebar,
       '/': [
         {
           text: 'Навигация',
           items: [
-            { text: 'OmniScope Wiki (главная)', link: '/' },
-            { text: 'Все статьи вики', link: '/wiki/overview' },
+            { text: 'OmniScope Docs (главная)', link: '/' },
+            { text: 'Все статьи guide', link: '/guide/overview' },
           ],
         },
       ],

@@ -7,6 +7,8 @@
     "alertEmail": { "value": "oncall@example.com" },
     "deployAks": { "value": false },
     "deployAcr": { "value": false },
+    "deployManagedPrometheus": { "value": false },
+    "deployLogExport": { "value": false },
     "tags": { "value": { "environment": "test", "project": "omniscope" } }
   }
 }

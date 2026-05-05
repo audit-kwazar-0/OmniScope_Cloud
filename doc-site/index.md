@@ -2,23 +2,19 @@
 outline: false
 ---
 
-# OmniScope Wiki
+# OmniScope Documentation
 
-Энциклопедия **Observability** для Azure (PZU / enterprise): архитектура, политики, APM, Grafana, алертинг, IaC и практика на AKS.
+Документация пересобрана с нуля по текущему коду репозитория: `infra/bicep`, `examples/`, GitHub workflows и фактическому runtime-поведению в AKS.
 
-Используйте **боковое меню** (раздел «Вики») или ссылки ниже.
+Используйте боковое меню **Guide** или быстрые ссылки ниже.
 
 | Статья | Содержание |
 |--------|------------|
-| [README репозитория](/wiki/repository-readme) | Копия корневого `README.md` (синхронизация скриптом) |
-| [Обзор и потоки данных](/wiki/overview) | Цели стека, mermaid data flow, единый контракт контекстов |
-| [Архитектурный фундамент](/wiki/architecture-foundation) | Метрики (AMP), логи (LAW + OpenSearch) |
-| [Авто-регистрация ресурсов](/wiki/auto-registration) | Azure Policy, Event Grid + Functions |
-| [Full stack](/wiki/full-stack) | VM/PaaS, AKS, Functions |
-| [APM / трассы](/wiki/apm-tracing) | OpenTelemetry → Application Insights |
-| [Grafana](/wiki/grafana) | Multi-datasource, обзорные дашборды |
-| [Алертинг и ITSM](/wiki/alerting-itsm) | Action Groups, Logic Apps, инциденты |
-| [IaC (Terraform)](/wiki/iac-terraform) | Модули, policy skeleton |
-| [Воркшоп](/wiki/workshop) | План на 1 день |
-| [Примеры на AKS](/wiki/hands-on-examples) | Репозиторий `examples/`, ACR |
-| [Cheat-sheet операторов](/wiki/appendix-operators) | Короткий чеклист расследования |
+| [README репозитория](/guide/repository-readme) | Автосинхронизированная копия корневого `README.md` |
+| [Обзор платформы](/guide/overview) | Компоненты, потоки данных и цели observability |
+| [IaC (Bicep)](/guide/iac-bicep) | Структура Bicep модулей и параметры |
+| [Runbook деплоя](/guide/deployment-runbook) | Практический `create -> deploy -> verify -> cleanup` |
+| [Observability модель](/guide/observability) | Метрики, логи, трассы, дашборды |
+| [Алерты и маршрутизация](/guide/alerts) | Scheduled Query Rules + Action Group |
+| [Gateway API](/guide/gateway-api) | Опциональная экспозиция сервисов через Gateway/HTTPRoute |
+| [Evidence / DoD](/guide/evidence) | Чеклист доказательств и скриншотов |

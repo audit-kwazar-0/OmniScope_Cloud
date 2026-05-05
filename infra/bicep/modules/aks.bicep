@@ -37,8 +37,46 @@ param loadTestDeployTag string = utcNow()
 @description('Log Analytics workspace resource ID for Container Insights addon (optional).')
 param logAnalyticsWorkspaceId string
 
+@description('AKS VNet CIDR.')
+param vnetAddressPrefix string = '10.224.0.0/16'
+
+@description('Subnet CIDR for AKS nodes.')
+param aksSubnetPrefix string = '10.224.0.0/22'
+
+@description('Subnet CIDR for private endpoints.')
+param privateEndpointsSubnetPrefix string = '10.224.8.0/24'
+
 var deployerName = '${prefix}-aks-deployer-uai'
 var aksContributorRoleDefinitionId = 'ed7f3fbd-7b88-4dd4-9017-9adb7ce333f8'
+var vnetName = '${prefix}-vnet'
+
+resource vnet 'Microsoft.Network/virtualNetworks@2023-09-01' = if (deployCluster) {
+  name: vnetName
+  location: location
+  tags: tags
+  properties: {
+    addressSpace: {
+      addressPrefixes: [
+        vnetAddressPrefix
+      ]
+    }
+    subnets: [
+      {
+        name: 'aks'
+        properties: {
+          addressPrefix: aksSubnetPrefix
+        }
+      }
+      {
+        name: 'private-endpoints'
+        properties: {
+          addressPrefix: privateEndpointsSubnetPrefix
+          privateEndpointNetworkPolicies: 'Disabled'
+        }
+      }
+    ]
+  }
+}
 
 resource deployerIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = if (deployCluster) {
   name: deployerName
@@ -65,10 +103,12 @@ resource aks 'Microsoft.ContainerService/managedClusters@2025-02-01' = if (deplo
         osType: 'Linux'
         type: 'VirtualMachineScaleSets'
         osDiskSizeGB: systemOsDiskSizeGB
+        vnetSubnetID: '${vnet.id}/subnets/aks'
       }
     ]
     networkProfile: {
-      networkPlugin: 'kubenet'
+      networkPlugin: 'azure'
+      networkPluginMode: 'overlay'
       loadBalancerSku: 'standard'
       outboundType: 'loadBalancer'
     }
@@ -108,6 +148,7 @@ resource loadTestDeploy 'Microsoft.Resources/deploymentScripts@2023-08-01' = if 
   }
   kind: 'AzureCLI'
   dependsOn: [
+    vnet
     aks
     aksContributorAssignment
   ]
@@ -182,8 +223,6 @@ spec:
           - --cpu
           - "${STRESS_CPU}"
           - --verbose
-          - --timeout
-          - "0"
         resources:
           requests:
             cpu: "500m"
@@ -203,6 +242,8 @@ echo "Done."
 output aksName string = deployCluster ? aks.name : ''
 output aksId string = deployCluster ? aks.id : ''
 output aksFqdn string = deployCluster ? aks.properties.fqdn : ''
+output vnetId string = deployCluster ? vnet.id : ''
+output privateEndpointsSubnetId string = deployCluster ? '${vnet.id}/subnets/private-endpoints' : ''
 output deployerIdentityId string = deployCluster ? deployerIdentity.id : ''
 @description('Kubelet managed identity object id — use for AcrPull role assignment on ACR.')
 output kubeletObjectId string = deployCluster ? aks.properties.identityProfile.kubeletidentity.objectId : ''

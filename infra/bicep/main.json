@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.42.1.51946",
-      "templateHash": "18165448223707553217"
+      "templateHash": "12997442953159151181"
     }
   },
   "parameters": {
@@ -56,6 +56,27 @@
         "description": "Action Group short name (SMS limitation, max 12 chars)."
       }
     },
+    "deployManagedPrometheus": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "If true, deploy Azure Monitor workspace + Managed Grafana for Managed Prometheus."
+      }
+    },
+    "deployLogExport": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "If true, deploy Event Hub log export path for OpenSearch/Elastic ingestion."
+      }
+    },
+    "teamsWebhookUri": {
+      "type": "securestring",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Optional Teams webhook URL for simulated notifications in Action Group."
+      }
+    },
     "deployAks": {
       "type": "bool",
       "defaultValue": true,
@@ -68,6 +89,13 @@
       "defaultValue": true,
       "metadata": {
         "description": "If true (and deployAks), create Azure Container Registry and grant kubelet AcrPull."
+      }
+    },
+    "deployAksDiagnostics": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "If true (and deployAks), enable AKS control-plane diagnostic settings to LAW."
       }
     },
     "acrNameOverride": {
@@ -111,7 +139,11 @@
     "acrRegistryName": "[if(not(empty(parameters('acrNameOverride'))), take(replace(toLower(parameters('acrNameOverride')), '-', ''), 50), take(format('omni{0}', uniqueString(subscription().id, parameters('prefix'), variables('rgName'))), 50))]",
     "lawName": "[format('{0}-law', parameters('prefix'))]",
     "appInsightsName": "[format('{0}-appi', parameters('prefix'))]",
-    "actionGroupName": "[format('{0}-ag', parameters('prefix'))]"
+    "actionGroupName": "[format('{0}-ag', parameters('prefix'))]",
+    "azureMonitorWorkspaceName": "[format('{0}-amw', parameters('prefix'))]",
+    "grafanaName": "[take(format('{0}grafana', parameters('prefix')), 23)]",
+    "eventHubNamespaceName": "[take(replace(format('{0}ehns', parameters('prefix')), '-', ''), 50)]",
+    "eventHubName": "streamforge-logs"
   },
   "resources": [
     {
@@ -157,6 +189,27 @@
           },
           "alertEmail": {
             "value": "[parameters('alertEmail')]"
+          },
+          "deployManagedPrometheus": {
+            "value": "[parameters('deployManagedPrometheus')]"
+          },
+          "azureMonitorWorkspaceName": {
+            "value": "[variables('azureMonitorWorkspaceName')]"
+          },
+          "grafanaName": {
+            "value": "[variables('grafanaName')]"
+          },
+          "deployLogExport": {
+            "value": "[parameters('deployLogExport')]"
+          },
+          "eventHubNamespaceName": {
+            "value": "[variables('eventHubNamespaceName')]"
+          },
+          "eventHubName": {
+            "value": "[variables('eventHubName')]"
+          },
+          "teamsWebhookUri": {
+            "value": "[parameters('teamsWebhookUri')]"
           }
         },
         "template": {
@@ -166,7 +219,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.42.1.51946",
-              "templateHash": "10444925086766058067"
+              "templateHash": "5563350424062523017"
             }
           },
           "parameters": {
@@ -224,6 +277,51 @@
               "metadata": {
                 "description": "Email receiver for Action Group."
               }
+            },
+            "deployManagedPrometheus": {
+              "type": "bool",
+              "defaultValue": true,
+              "metadata": {
+                "description": "If true, deploy Azure Monitor workspace + Managed Grafana."
+              }
+            },
+            "azureMonitorWorkspaceName": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure Monitor workspace name (Managed Prometheus storage)."
+              }
+            },
+            "grafanaName": {
+              "type": "string",
+              "metadata": {
+                "description": "Managed Grafana instance name."
+              }
+            },
+            "deployLogExport": {
+              "type": "bool",
+              "defaultValue": true,
+              "metadata": {
+                "description": "If true, deploy Event Hub export path for OpenSearch/Elastic ingestion."
+              }
+            },
+            "eventHubNamespaceName": {
+              "type": "string",
+              "metadata": {
+                "description": "Event Hub namespace name used as export target for logs."
+              }
+            },
+            "eventHubName": {
+              "type": "string",
+              "metadata": {
+                "description": "Event Hub name for streamed logs."
+              }
+            },
+            "teamsWebhookUri": {
+              "type": "securestring",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Optional Teams webhook endpoint for Action Group simulation."
+              }
             }
           },
           "resources": [
@@ -273,8 +371,182 @@
                     "emailAddress": "[parameters('alertEmail')]",
                     "useCommonAlertSchema": true
                   }
-                ]
+                ],
+                "webhookReceivers": "[if(not(empty(parameters('teamsWebhookUri'))), createArray(createObject('name', 'teams-webhook', 'serviceUri', parameters('teamsWebhookUri'), 'useCommonAlertSchema', true())), createArray())]"
               }
+            },
+            {
+              "condition": "[parameters('deployManagedPrometheus')]",
+              "type": "Microsoft.Monitor/accounts",
+              "apiVersion": "2023-04-03",
+              "name": "[parameters('azureMonitorWorkspaceName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {}
+            },
+            {
+              "condition": "[parameters('deployManagedPrometheus')]",
+              "type": "Microsoft.Dashboard/grafana",
+              "apiVersion": "2023-09-01",
+              "name": "[parameters('grafanaName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "sku": {
+                "name": "Standard"
+              },
+              "properties": {
+                "apiKey": "Enabled",
+                "deterministicOutboundIP": "Disabled",
+                "publicNetworkAccess": "Enabled",
+                "zoneRedundancy": "Disabled",
+                "grafanaIntegrations": {
+                  "azureMonitorWorkspaceIntegrations": [
+                    {
+                      "azureMonitorWorkspaceResourceId": "[resourceId('Microsoft.Monitor/accounts', parameters('azureMonitorWorkspaceName'))]"
+                    }
+                  ]
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Monitor/accounts', parameters('azureMonitorWorkspaceName'))]"
+              ]
+            },
+            {
+              "condition": "[parameters('deployLogExport')]",
+              "type": "Microsoft.EventHub/namespaces",
+              "apiVersion": "2022-10-01-preview",
+              "name": "[parameters('eventHubNamespaceName')]",
+              "location": "[parameters('location')]",
+              "sku": {
+                "name": "Standard",
+                "tier": "Standard",
+                "capacity": 1
+              },
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "minimumTlsVersion": "1.2",
+                "publicNetworkAccess": "Enabled"
+              }
+            },
+            {
+              "condition": "[parameters('deployLogExport')]",
+              "type": "Microsoft.EventHub/namespaces/eventhubs",
+              "apiVersion": "2022-10-01-preview",
+              "name": "[format('{0}/{1}', parameters('eventHubNamespaceName'), parameters('eventHubName'))]",
+              "properties": {
+                "messageRetentionInDays": 1,
+                "partitionCount": 2
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.EventHub/namespaces', parameters('eventHubNamespaceName'))]"
+              ]
+            },
+            {
+              "condition": "[parameters('deployLogExport')]",
+              "type": "Microsoft.OperationalInsights/workspaces/dataExports",
+              "apiVersion": "2023-09-01",
+              "name": "[format('{0}/{1}', parameters('lawName'), 'to-eventhub-alllogs')]",
+              "properties": {
+                "destination": {
+                  "resourceId": "[resourceId('Microsoft.EventHub/namespaces', parameters('eventHubNamespaceName'))]"
+                },
+                "tableNames": [
+                  "ContainerLogV2",
+                  "AzureDiagnostics",
+                  "KubePodInventory",
+                  "KubeEvents"
+                ],
+                "enable": true
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.EventHub/namespaces/eventhubs', parameters('eventHubNamespaceName'), parameters('eventHubName'))]",
+                "[resourceId('Microsoft.EventHub/namespaces', parameters('eventHubNamespaceName'))]",
+                "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('lawName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Insights/scheduledQueryRules",
+              "apiVersion": "2023-12-01",
+              "name": "[format('{0}-aks-cpu-high', parameters('actionGroupName'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "description": "AKS node CPU usage > 80% for 5 minutes",
+                "enabled": true,
+                "severity": 2,
+                "evaluationFrequency": "PT5M",
+                "windowSize": "PT5M",
+                "scopes": [
+                  "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('lawName'))]"
+                ],
+                "criteria": {
+                  "allOf": [
+                    {
+                      "query": "let avgCpu = toscalar(InsightsMetrics | where TimeGenerated > ago(5m) | where Namespace == \"container.azm.ms/cpu\" and Name == \"cpuUsageNanoCores\" | summarize avg(Val)); print cpuBreach = iif(isnull(avgCpu), 0.0, iif(avgCpu > 80.0, 1.0, 0.0))",
+                      "timeAggregation": "Maximum",
+                      "metricMeasureColumn": "cpuBreach",
+                      "operator": "GreaterThan",
+                      "threshold": 0,
+                      "failingPeriods": {
+                        "numberOfEvaluationPeriods": 1,
+                        "minFailingPeriodsToAlert": 1
+                      }
+                    }
+                  ]
+                },
+                "autoMitigate": true,
+                "actions": {
+                  "actionGroups": [
+                    "[resourceId('Microsoft.Insights/actionGroups', parameters('actionGroupName'))]"
+                  ]
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Insights/actionGroups', parameters('actionGroupName'))]",
+                "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('lawName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Insights/scheduledQueryRules",
+              "apiVersion": "2023-12-01",
+              "name": "[format('{0}-streamforge-errors', parameters('actionGroupName'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "description": "StreamForge error ratio > 5% for last 10 minutes",
+                "enabled": true,
+                "severity": 2,
+                "evaluationFrequency": "PT5M",
+                "windowSize": "PT10M",
+                "scopes": [
+                  "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('lawName'))]"
+                ],
+                "criteria": {
+                  "allOf": [
+                    {
+                      "query": "let total = toscalar(ContainerLogV2 | where TimeGenerated > ago(10m) | count); let errors = toscalar(ContainerLogV2 | where TimeGenerated > ago(10m) | where LogMessage has \"ERROR\" or LogMessage matches regex @\"\\b5\\d\\d\\b\" | count); print errorRate = iif(total == 0, 0.0, todouble(errors) / todouble(total) * 100.0)",
+                      "timeAggregation": "Maximum",
+                      "metricMeasureColumn": "errorRate",
+                      "operator": "GreaterThan",
+                      "threshold": 5,
+                      "failingPeriods": {
+                        "numberOfEvaluationPeriods": 1,
+                        "minFailingPeriodsToAlert": 1
+                      }
+                    }
+                  ]
+                },
+                "autoMitigate": true,
+                "actions": {
+                  "actionGroups": [
+                    "[resourceId('Microsoft.Insights/actionGroups', parameters('actionGroupName'))]"
+                  ]
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Insights/actionGroups', parameters('actionGroupName'))]",
+                "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('lawName'))]"
+              ]
             }
           ],
           "outputs": {
@@ -289,6 +561,18 @@
             "actionGroupId": {
               "type": "string",
               "value": "[resourceId('Microsoft.Insights/actionGroups', parameters('actionGroupName'))]"
+            },
+            "azureMonitorWorkspaceId": {
+              "type": "string",
+              "value": "[if(parameters('deployManagedPrometheus'), resourceId('Microsoft.Monitor/accounts', parameters('azureMonitorWorkspaceName')), '')]"
+            },
+            "grafanaUrl": {
+              "type": "string",
+              "value": "[if(parameters('deployManagedPrometheus'), reference(resourceId('Microsoft.Dashboard/grafana', parameters('grafanaName')), '2023-09-01').endpoint, '')]"
+            },
+            "eventHubId": {
+              "type": "string",
+              "value": "[if(parameters('deployLogExport'), resourceId('Microsoft.EventHub/namespaces/eventhubs', parameters('eventHubNamespaceName'), parameters('eventHubName')), '')]"
             }
           }
         }
@@ -435,7 +719,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.42.1.51946",
-              "templateHash": "16490361749798851609"
+              "templateHash": "18370412389533834803"
             }
           },
           "parameters": {
@@ -526,13 +810,65 @@
               "metadata": {
                 "description": "Log Analytics workspace resource ID for Container Insights addon (optional)."
               }
+            },
+            "vnetAddressPrefix": {
+              "type": "string",
+              "defaultValue": "10.224.0.0/16",
+              "metadata": {
+                "description": "AKS VNet CIDR."
+              }
+            },
+            "aksSubnetPrefix": {
+              "type": "string",
+              "defaultValue": "10.224.0.0/22",
+              "metadata": {
+                "description": "Subnet CIDR for AKS nodes."
+              }
+            },
+            "privateEndpointsSubnetPrefix": {
+              "type": "string",
+              "defaultValue": "10.224.8.0/24",
+              "metadata": {
+                "description": "Subnet CIDR for private endpoints."
+              }
             }
           },
           "variables": {
             "deployerName": "[format('{0}-aks-deployer-uai', parameters('prefix'))]",
-            "aksContributorRoleDefinitionId": "ed7f3fbd-7b88-4dd4-9017-9adb7ce333f8"
+            "aksContributorRoleDefinitionId": "ed7f3fbd-7b88-4dd4-9017-9adb7ce333f8",
+            "vnetName": "[format('{0}-vnet', parameters('prefix'))]"
           },
           "resources": [
+            {
+              "condition": "[parameters('deployCluster')]",
+              "type": "Microsoft.Network/virtualNetworks",
+              "apiVersion": "2023-09-01",
+              "name": "[variables('vnetName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "addressSpace": {
+                  "addressPrefixes": [
+                    "[parameters('vnetAddressPrefix')]"
+                  ]
+                },
+                "subnets": [
+                  {
+                    "name": "aks",
+                    "properties": {
+                      "addressPrefix": "[parameters('aksSubnetPrefix')]"
+                    }
+                  },
+                  {
+                    "name": "private-endpoints",
+                    "properties": {
+                      "addressPrefix": "[parameters('privateEndpointsSubnetPrefix')]",
+                      "privateEndpointNetworkPolicies": "Disabled"
+                    }
+                  }
+                ]
+              }
+            },
             {
               "condition": "[parameters('deployCluster')]",
               "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
@@ -562,11 +898,13 @@
                     "vmSize": "[parameters('systemVmSize')]",
                     "osType": "Linux",
                     "type": "VirtualMachineScaleSets",
-                    "osDiskSizeGB": "[parameters('systemOsDiskSizeGB')]"
+                    "osDiskSizeGB": "[parameters('systemOsDiskSizeGB')]",
+                    "vnetSubnetID": "[format('{0}/subnets/aks', resourceId('Microsoft.Network/virtualNetworks', variables('vnetName')))]"
                   }
                 ],
                 "networkProfile": {
-                  "networkPlugin": "kubenet",
+                  "networkPlugin": "azure",
+                  "networkPluginMode": "overlay",
                   "loadBalancerSku": "standard",
                   "outboundType": "loadBalancer"
                 },
@@ -578,7 +916,10 @@
                     }
                   }
                 }
-              }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))]"
+              ]
             },
             {
               "condition": "[parameters('deployCluster')]",
@@ -629,12 +970,13 @@
                     "value": "[string(parameters('stressCpuWorkers'))]"
                   }
                 ],
-                "scriptContent": "set -euo pipefail\n\necho \"Logging in with user-assigned managed identity...\"\naz login --identity\n\necho \"Ensuring kubectl exists...\"\nif ! command -v kubectl >/dev/null 2>&1; then\n  az aks install-cli >/dev/null\nfi\n\necho \"Fetching admin kubeconfig (non-interactive)...\"\naz aks get-credentials \\\n  --resource-group \"$RG\" \\\n  --name \"$CLUSTER\" \\\n  --admin \\\n  --overwrite-existing \\\n  --only-show-errors\n\nkubectl version --client\n\nkubectl apply -f - <<EOF\napiVersion: v1\nkind: Namespace\nmetadata:\n  name: loadtest\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: cpu-stress\n  namespace: loadtest\n  labels:\n    app: cpu-stress\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: cpu-stress\n  template:\n    metadata:\n      labels:\n        app: cpu-stress\n    spec:\n      containers:\n      - name: stress\n        image: polinux/stress\n        args:\n          - stress\n          - --cpu\n          - \"${STRESS_CPU}\"\n          - --verbose\n          - --timeout\n          - \"0\"\n        resources:\n          requests:\n            cpu: \"500m\"\n            memory: \"128Mi\"\n          limits:\n            cpu: \"2\"\n            memory: \"512Mi\"\nEOF\n\nkubectl -n loadtest rollout status deployment/cpu-stress --timeout=10m\n\necho \"Done.\"\n"
+                "scriptContent": "set -euo pipefail\n\necho \"Logging in with user-assigned managed identity...\"\naz login --identity\n\necho \"Ensuring kubectl exists...\"\nif ! command -v kubectl >/dev/null 2>&1; then\n  az aks install-cli >/dev/null\nfi\n\necho \"Fetching admin kubeconfig (non-interactive)...\"\naz aks get-credentials \\\n  --resource-group \"$RG\" \\\n  --name \"$CLUSTER\" \\\n  --admin \\\n  --overwrite-existing \\\n  --only-show-errors\n\nkubectl version --client\n\nkubectl apply -f - <<EOF\napiVersion: v1\nkind: Namespace\nmetadata:\n  name: loadtest\n---\napiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: cpu-stress\n  namespace: loadtest\n  labels:\n    app: cpu-stress\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: cpu-stress\n  template:\n    metadata:\n      labels:\n        app: cpu-stress\n    spec:\n      containers:\n      - name: stress\n        image: polinux/stress\n        args:\n          - stress\n          - --cpu\n          - \"${STRESS_CPU}\"\n          - --verbose\n        resources:\n          requests:\n            cpu: \"500m\"\n            memory: \"128Mi\"\n          limits:\n            cpu: \"2\"\n            memory: \"512Mi\"\nEOF\n\nkubectl -n loadtest rollout status deployment/cpu-stress --timeout=10m\n\necho \"Done.\"\n"
               },
               "dependsOn": [
                 "[resourceId('Microsoft.ContainerService/managedClusters', parameters('aksName'))]",
                 "[extensionResourceId(resourceId('Microsoft.ContainerService/managedClusters', parameters('aksName')), 'Microsoft.Authorization/roleAssignments', guid(resourceId('Microsoft.ContainerService/managedClusters', parameters('aksName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('deployerName')), variables('aksContributorRoleDefinitionId')))]",
-                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('deployerName'))]"
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', variables('deployerName'))]",
+                "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))]"
               ]
             }
           ],
@@ -650,6 +992,14 @@
             "aksFqdn": {
               "type": "string",
               "value": "[if(parameters('deployCluster'), reference(resourceId('Microsoft.ContainerService/managedClusters', parameters('aksName')), '2025-02-01').fqdn, '')]"
+            },
+            "vnetId": {
+              "type": "string",
+              "value": "[if(parameters('deployCluster'), resourceId('Microsoft.Network/virtualNetworks', variables('vnetName')), '')]"
+            },
+            "privateEndpointsSubnetId": {
+              "type": "string",
+              "value": "[if(parameters('deployCluster'), format('{0}/subnets/private-endpoints', resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))), '')]"
             },
             "deployerIdentityId": {
               "type": "string",
@@ -745,6 +1095,115 @@
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgName')), 'Microsoft.Resources/deployments', format('{0}-aks-module', parameters('prefix')))]",
         "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('rgName'))]"
       ]
+    },
+    {
+      "condition": "[and(parameters('deployAks'), parameters('deployAksDiagnostics'))]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('{0}-aks-diagnostics', parameters('prefix'))]",
+      "resourceGroup": "[variables('rgName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "aksName": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgName')), 'Microsoft.Resources/deployments', format('{0}-aks-module', parameters('prefix'))), '2025-04-01').outputs.aksName.value]"
+          },
+          "lawId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgName')), 'Microsoft.Resources/deployments', format('{0}-observability-base', parameters('prefix'))), '2025-04-01').outputs.lawId.value]"
+          },
+          "deployDiagnostics": {
+            "value": true
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.42.1.51946",
+              "templateHash": "621507507396230478"
+            }
+          },
+          "parameters": {
+            "aksName": {
+              "type": "string",
+              "metadata": {
+                "description": "AKS cluster name to configure diagnostics for."
+              }
+            },
+            "lawId": {
+              "type": "string",
+              "metadata": {
+                "description": "Log Analytics Workspace resource ID."
+              }
+            },
+            "deployDiagnostics": {
+              "type": "bool",
+              "defaultValue": true,
+              "metadata": {
+                "description": "If false, skip AKS control-plane diagnostics."
+              }
+            }
+          },
+          "resources": [
+            {
+              "condition": "[parameters('deployDiagnostics')]",
+              "type": "Microsoft.Insights/diagnosticSettings",
+              "apiVersion": "2021-05-01-preview",
+              "scope": "[resourceId('Microsoft.ContainerService/managedClusters', parameters('aksName'))]",
+              "name": "send-to-law",
+              "properties": {
+                "workspaceId": "[parameters('lawId')]",
+                "logs": [
+                  {
+                    "category": "kube-apiserver",
+                    "enabled": true
+                  },
+                  {
+                    "category": "kube-audit",
+                    "enabled": true
+                  },
+                  {
+                    "category": "kube-audit-admin",
+                    "enabled": true
+                  },
+                  {
+                    "category": "kube-controller-manager",
+                    "enabled": true
+                  },
+                  {
+                    "category": "kube-scheduler",
+                    "enabled": true
+                  },
+                  {
+                    "category": "cluster-autoscaler",
+                    "enabled": true
+                  },
+                  {
+                    "category": "guard",
+                    "enabled": true
+                  }
+                ],
+                "metrics": [
+                  {
+                    "category": "AllMetrics",
+                    "enabled": true
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgName')), 'Microsoft.Resources/deployments', format('{0}-aks-module', parameters('prefix')))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgName')), 'Microsoft.Resources/deployments', format('{0}-observability-base', parameters('prefix')))]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('rgName'))]"
+      ]
     }
   ],
   "outputs": {
@@ -764,6 +1223,18 @@
       "type": "string",
       "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgName')), 'Microsoft.Resources/deployments', format('{0}-observability-base', parameters('prefix'))), '2025-04-01').outputs.actionGroupId.value]"
     },
+    "azureMonitorWorkspaceId": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgName')), 'Microsoft.Resources/deployments', format('{0}-observability-base', parameters('prefix'))), '2025-04-01').outputs.azureMonitorWorkspaceId.value]"
+    },
+    "grafanaUrl": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgName')), 'Microsoft.Resources/deployments', format('{0}-observability-base', parameters('prefix'))), '2025-04-01').outputs.grafanaUrl.value]"
+    },
+    "eventHubId": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgName')), 'Microsoft.Resources/deployments', format('{0}-observability-base', parameters('prefix'))), '2025-04-01').outputs.eventHubId.value]"
+    },
     "aksName": {
       "type": "string",
       "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgName')), 'Microsoft.Resources/deployments', format('{0}-aks-module', parameters('prefix'))), '2025-04-01').outputs.aksName.value]"
@@ -771,6 +1242,14 @@
     "aksFqdn": {
       "type": "string",
       "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgName')), 'Microsoft.Resources/deployments', format('{0}-aks-module', parameters('prefix'))), '2025-04-01').outputs.aksFqdn.value]"
+    },
+    "vnetId": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgName')), 'Microsoft.Resources/deployments', format('{0}-aks-module', parameters('prefix'))), '2025-04-01').outputs.vnetId.value]"
+    },
+    "privateEndpointsSubnetId": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, variables('rgName')), 'Microsoft.Resources/deployments', format('{0}-aks-module', parameters('prefix'))), '2025-04-01').outputs.privateEndpointsSubnetId.value]"
     },
     "acrName": {
       "type": "string",

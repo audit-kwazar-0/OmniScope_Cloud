@@ -1,0 +1,17 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "prefix": { "value": "omniscope-aks-test" },
+    "location": { "value": "westeurope" },
+    "alertEmail": { "value": "oncall@example.com" },
+    "deployAks": { "value": true },
+    "deployAcr": { "value": true },
+    "deployManagedPrometheus": { "value": true },
+    "deployLogExport": { "value": true },
+    "aksSystemVmSize": { "value": "Standard_B2s_v2" },
+    "aksSystemNodeCount": { "value": 1 },
+    "stressCpuWorkers": { "value": 2 },
+    "tags": { "value": { "environment": "test", "project": "omniscope", "purpose": "aks-apps" } }
+  }
+}

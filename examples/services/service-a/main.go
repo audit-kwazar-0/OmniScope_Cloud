@@ -16,10 +16,12 @@ import (
 
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/metric"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -138,18 +140,23 @@ func main() {
 		Transport: otelhttp.NewTransport(http.DefaultTransport),
 		Timeout:   15 * time.Second,
 	}
+	meter := otel.Meter(serviceName)
+	processedCounter, _ := meter.Int64Counter("streamforge_processed_messages_total", metric.WithDescription("Total processed StreamForge-like messages"))
+	errorCounter, _ := meter.Int64Counter("streamforge_processing_errors_total", metric.WithDescription("Total processing errors in StreamForge-like handlers"))
 
 	r.GET("/health", func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
 
 	r.GET("/hello-a", func(c *gin.Context) {
+		processedCounter.Add(c.Request.Context(), 1, metric.WithAttributes(attribute.String("route", "/hello-a"), attribute.String("service", serviceName)))
 		c.JSON(http.StatusOK, gin.H{"message": "hello from service-a"})
 	})
 
 	r.GET("/call-b", func(c *gin.Context) {
 		req, err := http.NewRequestWithContext(c.Request.Context(), http.MethodGet, serviceBURL+"/hello-b", nil)
 		if err != nil {
+			errorCounter.Add(c.Request.Context(), 1, metric.WithAttributes(attribute.String("route", "/call-b"), attribute.String("service", serviceName)))
 			c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 			return
 		}
@@ -157,6 +164,7 @@ func main() {
 
 		resp, err := client.Do(req)
 		if err != nil {
+			errorCounter.Add(c.Request.Context(), 1, metric.WithAttributes(attribute.String("route", "/call-b"), attribute.String("service", serviceName)))
 			c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 			return
 		}
@@ -164,9 +172,11 @@ func main() {
 
 		body, _ := io.ReadAll(resp.Body)
 		if resp.StatusCode != http.StatusOK {
+			errorCounter.Add(c.Request.Context(), 1, metric.WithAttributes(attribute.String("route", "/call-b"), attribute.String("service", serviceName)))
 			c.JSON(resp.StatusCode, gin.H{"error": string(body)})
 			return
 		}
+		processedCounter.Add(c.Request.Context(), 1, metric.WithAttributes(attribute.String("route", "/call-b"), attribute.String("service", serviceName)))
 		c.JSON(http.StatusOK, gin.H{"via": "service-a", "from_b": strings.TrimSpace(string(body))})
 	})
 

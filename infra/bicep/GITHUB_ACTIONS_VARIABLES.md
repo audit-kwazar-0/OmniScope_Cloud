@@ -4,10 +4,26 @@
 
 Путь в GitHub:
 
-- **Repository** → **Settings** → **Secrets and variables** → **Actions** — общие Variables / Secrets для репозитория.
-- **Settings** → **Environments** → окружение **`bicep`** — свои **Environment secrets** и **Environment variables** (workflow в этом репозитории ожидает именно их для Azure OIDC).
+- **Repository** → **Settings** → **Secrets and variables** → **Actions** — общие **Variables** и **Secrets** репозитория.
+- **Settings** → **Environments** → окружение **`bicep`** — опционально **Environment secrets** / **Environment variables** (изоляция, правила защиты, отдельные значения для prod/test).
 
-Текущие workflow **`.github/workflows/azure-connection-test.yml`** и **`infra-bicep-what-if.yml`** задают в job строку **`environment: bicep`**, поэтому `secrets.AZURE_*` и `vars.BICEP_*` читаются **из окружения `bicep`**, а не из глобальной вкладки Actions (если только вы не продублировали значения и там).
+Текущие workflow **`.github/workflows/azure-connection-test.yml`** и **`.github/workflows/infra-bicep-what-if.yml`** задают в job **`environment: bicep`**. Тогда в OIDC-токене subject вида **`repo:ORG/REPO:environment:bicep`** — в Entra обязателен federated credential на **Environment** с именем **`bicep`** (см. §3.2).
+
+**Важно про слияние контекстов:** `secrets.AZURE_*` и `vars.BICEP_*` доступны job’у и из **repository**, и из **environment** `bicep` (при одинаковых именах обычно приоритет у более узкого уровня — [Variables](https://docs.github.com/en/actions/learn-github-actions/variables), [Secrets](https://docs.github.com/en/actions/security-guides/using-secrets-in-github-actions)). Успешный **Azure — connection test** означает только: OIDC + три идентификатора Azure. Для **Infra — Bicep what-if** дополнительно нужны **Variables** `BICEP_PREFIX`, `BICEP_LOCATION` и почта `BICEP_ALERT_EMAIL` (variable или secret); для плана **с AKS и ACR** — ещё `BICEP_DEPLOY_AKS=true` и `BICEP_DEPLOY_ACR=true` **или** при ручном запуске what-if выберите в форме **deploy_aks / deploy_acr = true** (переопределение без смены Variables).
+
+После **connection test** смотрите шаг **Preflight** — там предупреждения, если чего-то не хватает для what-if.
+
+---
+
+## Цепочка пайплайнов (OIDC → what-if → AKS в плане)
+
+| Шаг | Workflow | Что проверяется | Чего недостаточно для следующего шага |
+|-----|----------|-----------------|--------------------------------------|
+| 1 | **Azure — connection test** | Federated credential `environment:bicep`, `AZURE_*` **Secrets**, роль на подписку, `az account show` | — |
+| 2 | **Infra — Bicep what-if** | То же OIDC + параметры Bicep + `az deployment sub what-if` | Без `BICEP_*` упадёт на проверке конфигурации; без `deployAks=true` в плане **не появятся** AKS/ACR |
+| 3 | Реальный деплой | Локально `./deploy.sh deploy` или отдельный CD (в репозитории пока только what-if, не `deployment sub create`) | Отдельное решение: approvals, другой workflow |
+
+**Роль приложения (Entra) на подписку:** для what-if с AKS обычно нужна та же ширина прав, что и для создания ресурсов (часто **Contributor** на тестовую подписку; только **Reader** может не хватить для корректного what-if по сложным шаблонам). Плюс квоты подписки на compute / AKS в регионе `BICEP_LOCATION`.
 
 ---
 
@@ -23,7 +39,7 @@
 5. Роль приложению на подписку — §3.3.
 6. **Actions → Azure — connection test → Run workflow** (ветка обычно `main`). В логе шага **«Подписка активна»** — `az account show`.
 
-**Альтернатива без Environment:** удалите из YAML строку `environment: bicep` и храните `AZURE_*` как **Repository Variables** (`vars`) — тогда federated credential достаточно на **Branch** (см. §3.2).
+**Альтернатива без Environment:** удалите из YAML строку `environment: bicep` и храните `AZURE_*` как **Repository Secrets**; federated credential в Entra тогда на **Branch** (см. §3.2). Для client/tenant/subscription **нельзя** использовать обычные Variables — только Secrets, иначе значения светятся в логах.
 
 ---
 
@@ -160,9 +176,9 @@ az role assignment create \
 
 ## Шаг 6. Проверка
 
-1. Окружение **`bicep`**: заданы **Environment secrets** `AZURE_*` и **Variables** (или **Environment variables**) `BICEP_*`.
-2. **Actions** → **Infra — Bicep what-if (Azure)** → **Run workflow**.
-3. Ошибка входа: federated credential должен соответствовать **Environment `bicep`** (или уберите `environment:` из workflow и используйте credential на **ветку**). Плюс роль SP на подписке.
+1. **Azure — connection test** — зелёный логин и `az account show`; в **Preflight** нет критичных предупреждений по `BICEP_*` (если дальше нужен what-if).
+2. **Infra — Bicep what-if** → **Run workflow**: для плана с кластером выберите **deploy_aks = true** и **deploy_acr = true**, либо заранее задайте Variables `BICEP_DEPLOY_AKS` / `BICEP_DEPLOY_ACR`.
+3. Ошибка входа: federated credential под subject **environment:bicep** (или другой дизайн — см. §3.2). Роль SP на подписку достаточная для ARM what-if с AKS.
 
 ---
 
@@ -170,9 +186,9 @@ az role assignment create \
 
 | Имя | Где задать | Обязательно |
 |-----|------------|-------------|
-| `AZURE_SUBSCRIPTION_ID` | **Environment secret** `bicep` | да |
-| `AZURE_TENANT_ID` | **Environment secret** `bicep` | да |
-| `AZURE_CLIENT_ID` | **Environment secret** `bicep` | да (OIDC) |
+| `AZURE_SUBSCRIPTION_ID` | **Repository** или **Environment** `bicep` → **Secret** | да |
+| `AZURE_TENANT_ID` | то же | да |
+| `AZURE_CLIENT_ID` | то же (OIDC) | да |
 | `BICEP_PREFIX` | Environment **или** repository **Variable** | да (what-if) |
 | `BICEP_LOCATION` | Environment **или** repository **Variable** | да (what-if) |
 | `BICEP_ALERT_EMAIL` | Environment/repository **Variable** или **Secret** | да (what-if) |
@@ -194,3 +210,13 @@ az role assignment create \
 1. Проверьте **`AZURE_TENANT_ID`**: это **Directory (tenant) ID** каталога, где создано **именно это** App registration (Entra → приложение → Overview).  
 2. Проверьте **`AZURE_CLIENT_ID`**: только **Application (client) ID** с той же карточки, не Object ID и не id подписки.  
 3. Локально: `az login --tenant "<TENANT_ID>"` затем `az ad app show --id "<CLIENT_ID>"` — если ошибка, пара tenant/client неверна или приложение в другом каталоге.
+
+---
+
+## Ошибка `AADSTS700213: No matching federated identity record found for presented assertion subject 'repo:…:environment:bicep'`
+
+GitHub выдал токен с subject вида **`repo:ORG/REPO:environment:bicep`**, а в Entra **нет** federated credential с таким же subject (часто создан только credential на **ветку** `ref:refs/heads/main`).
+
+1. Откройте **то же** App registration → **Federated credentials** → **Add credential**.  
+2. Выберите **Entity type: Environment**, **Environment name: `bicep`**, **Organization** и **Repository** как в логе ошибки (должны совпасть с URL репозитория на GitHub).  
+3. Сохраните. Старый credential на **Branch** можно оставить — для workflow с `environment: bicep` он не подставляется автоматически.

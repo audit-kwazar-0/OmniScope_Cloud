@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
         - name: service-b
-          image: __ACR_LOGIN_SERVER__/omniscope-service-b:latest
+          image: __ACR_LOGIN_SERVER__/omniscope/service-b:latest
           ports:
             - containerPort: 8082
           env:

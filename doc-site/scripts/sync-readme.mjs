@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Syncs repository root README.md → doc-site/wiki/repository-readme.md
+ * Syncs repository root README.md → doc-site/guide/repository-readme.md
  * Rewrites relative ./ links to https://github.com/<owner>/<repo>/blob/main/... so they work on GitHub Pages.
  *
  * Repo slug: GITHUB_REPOSITORY (set in GitHub Actions) or parsed from `git remote get-url origin`.
@@ -15,7 +15,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const docSiteRoot = join(__dirname, '..')
 const repoRoot = join(docSiteRoot, '..')
 const readmePath = join(repoRoot, 'README.md')
-const outPath = join(docSiteRoot, 'wiki', 'repository-readme.md')
+const outPath = join(docSiteRoot, 'guide', 'repository-readme.md')
 
 function detectGithubSlug() {
   const env = process.env.GITHUB_REPOSITORY

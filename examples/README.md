@@ -12,6 +12,7 @@ For the relationship **ACR ↔ AKS**, **build/push/deploy**, and **Azure Repos**
 |------|---------|
 | `services/service-a`, `services/service-b` | `Dockerfile` + Go sources for `docker build` / pipeline build. |
 | `kubernetes/` | Namespaced workloads for AKS (`omniscope` namespace). |
+| `kubernetes/gateway/` | Optional Gateway API (`Gateway` + `HTTPRoute`) to expose app without port-forward. |
 | `docs/AKS-ACR-CICD.md` | ACR, AKS, CI/CD, Azure Repos. |
 | `otel-collector-config.yaml` | Optional reference copy of the collector config (source of truth in `kubernetes/otel/20-otel-configmap.yaml`). |
 
@@ -19,9 +20,9 @@ For the relationship **ACR ↔ AKS**, **build/push/deploy**, and **Azure Repos**
 
 ## Prerequisites
 
-- An AKS cluster (this repo’s Bicep can create **AKS + ACR + AcrPull** — see `infra/bicep/README.md`).
+- An AKS cluster (this repo’s Bicep can create **AKS + ACR + AcrPull** — see `infra/bicep/README.md`; для быстрого теста — `infra/bicep/parameters.test-aks.json` + `./deploy.sh deploy` из каталога `infra/bicep/`).
 - `kubectl` and `az` CLI; kubeconfig from `az aks get-credentials`.
-- Images **pushed** to your ACR: repositories `omniscope-service-a` and `omniscope-service-b` (tags must match manifests, e.g. `latest` or your CI tag).
+- Images **pushed** to your ACR: repositories `omniscope/service-a` and `omniscope/service-b` (tags must match manifests, e.g. `latest` or your CI tag).
 
 ---
 
@@ -32,11 +33,11 @@ export ACR_LOGIN_SERVER="yourregistry.azurecr.io"   # from deployment output acr
 
 az acr login --name "${ACR_LOGIN_SERVER%%.azurecr.io}"
 
-docker build -t "${ACR_LOGIN_SERVER}/omniscope-service-a:latest" services/service-a
-docker push "${ACR_LOGIN_SERVER}/omniscope-service-a:latest"
+docker build -t "${ACR_LOGIN_SERVER}/omniscope/service-a:latest" services/service-a
+docker push "${ACR_LOGIN_SERVER}/omniscope/service-a:latest"
 
-docker build -t "${ACR_LOGIN_SERVER}/omniscope-service-b:latest" services/service-b
-docker push "${ACR_LOGIN_SERVER}/omniscope-service-b:latest"
+docker build -t "${ACR_LOGIN_SERVER}/omniscope/service-b:latest" services/service-b
+docker push "${ACR_LOGIN_SERVER}/omniscope/service-b:latest"
 ```
 
 ---
@@ -77,6 +78,23 @@ kubectl -n omniscope port-forward svc/jaeger 16686:16686 &
 - Service A: http://localhost:8081/hello-a — chain call: http://localhost:8081/call-b  
 - Service B: http://localhost:8082/hello-b  
 - Jaeger UI: http://localhost:16686  
+
+### Optional: Gateway API
+
+If your cluster has a Gateway API controller (and a valid `GatewayClass`), you can expose routes through `Gateway` / `HTTPRoute`.
+
+1. Set your class name in `kubernetes/gateway/10-gateway.yaml` (replace `__GATEWAY_CLASS__`).
+2. Apply manifests:
+
+```bash
+kubectl apply -f kubernetes/gateway/
+kubectl -n omniscope get gateway,httproute
+```
+
+Then check `Gateway` status/address and call:
+- `/hello-a`
+- `/call-b`
+- `/hello-b`
 
 ---
 

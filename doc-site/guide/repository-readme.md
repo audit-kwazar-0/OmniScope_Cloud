@@ -63,6 +63,32 @@ az deployment sub create \
 
 To deploy **AKS without** a new registry (bring your own ACR or public images only): set `deployAcr=false`. Parameter reference: [`infra/bicep/README.md`](https://github.com/audit-kwazar-0/OmniScope_Cloud/blob/main/infra/bicep/README.md). Terraform and Pulumi equivalents live under [`infra/terraform/`](https://github.com/audit-kwazar-0/OmniScope_Cloud/blob/main/infra/terraform/) and [`infra/pulumi/`](https://github.com/audit-kwazar-0/OmniScope_Cloud/blob/main/infra/pulumi/); shared concepts are in [`infra/README.md`](https://github.com/audit-kwazar-0/OmniScope_Cloud/blob/main/infra/README.md).
 
+## OmniScope Observability Architecture
+
+```mermaid
+flowchart LR
+  U[Client/API Consumer] --> A[AKS: service-a]
+  A --> B[AKS: service-b]
+  A --> OTel[OTel Collector]
+  B --> OTel
+  OTel --> AI[Application Insights]
+  OTel --> LAW[Log Analytics Workspace]
+  AKS[AKS Nodes + Control Plane] --> LAW
+  AKS --> AMW[Azure Monitor Workspace<br/>Managed Prometheus]
+  AMW --> GRAF[Managed Grafana]
+  LAW --> EH[Event Hub Export]
+  EH --> OS[OpenSearch / Elastic]
+  LAW --> ALERTS[Alert Rules]
+  ALERTS --> AG[Action Group]
+  AG --> MAIL[Email]
+  AG --> TEAMS[MS Teams Webhook]
+```
+
+- Rebuilt documentation entrypoint: [`docs/README.md`](https://github.com/audit-kwazar-0/OmniScope_Cloud/blob/main/docs/README.md)
+- Deployment runbook (`create -> deploy -> verify -> cleanup`): [`docs/DEPLOYMENT_RUNBOOK.md`](https://github.com/audit-kwazar-0/OmniScope_Cloud/blob/main/docs/DEPLOYMENT_RUNBOOK.md)
+- Evidence and screenshot checklist: [`docs/EVIDENCE.md`](https://github.com/audit-kwazar-0/OmniScope_Cloud/blob/main/docs/EVIDENCE.md)
+- Grafana import template: [`docs/grafana-dashboard.json`](https://github.com/audit-kwazar-0/OmniScope_Cloud/blob/main/docs/grafana-dashboard.json)
+
 ### Documentation site
 
 **Live docs (GitHub Pages):** [https://audit-kwazar-0.github.io/OmniScope_Cloud/](https://audit-kwazar-0.github.io/OmniScope_Cloud/)

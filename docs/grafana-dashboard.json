@@ -1,0 +1,67 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_PROMETHEUS",
+      "label": "Prometheus",
+      "type": "datasource",
+      "pluginId": "prometheus",
+      "pluginName": "Prometheus"
+    }
+  ],
+  "title": "StreamForge Baseline",
+  "uid": "streamforge-baseline-v2",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Processed Messages Rate",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "expr": "sum(rate(streamforge_processed_messages_total[5m])) by (service)",
+          "legendFormat": "{{service}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Processing Error Rate",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "expr": "sum(rate(streamforge_processing_errors_total[5m])) by (service)",
+          "legendFormat": "{{service}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Error Ratio (%)",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "expr": "100 * sum(rate(streamforge_processing_errors_total[10m])) / clamp_min(sum(rate(streamforge_processed_messages_total[10m])), 1)",
+          "legendFormat": "error-ratio"
+        }
+      ]
+    }
+  ]
+}

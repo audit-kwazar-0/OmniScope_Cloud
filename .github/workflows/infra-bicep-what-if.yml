@@ -1,15 +1,33 @@
 # Subscription-level Bicep what-if using OIDC (no client secret).
 # Ожидается GitHub Environment **bicep**:
-#   Secrets: AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID
-#   Variables (или repository): BICEP_PREFIX, BICEP_LOCATION, опционально BICEP_DEPLOY_AKS / BICEP_DEPLOY_ACR
+#   Secrets: AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID (как в «Azure — connection test»)
+#   Variables (environment или repository): BICEP_PREFIX, BICEP_LOCATION; опционально BICEP_DEPLOY_AKS / BICEP_DEPLOY_ACR
 #   Secret или Variable: BICEP_ALERT_EMAIL
+# При запуске можно переопределить AKS/ACR полями dispatch (без смены постоянных Variables).
 #
-# См. infra/bicep/GITHUB_ACTIONS_VARIABLES.md (Environment + Federated credential).
+# См. infra/bicep/GITHUB_ACTIONS_VARIABLES.md (Environment + Federated credential + цепочка пайплайнов).
 
 name: 'Infra — Bicep what-if (Azure)'
 
 on:
   workflow_dispatch:
+    inputs:
+      deploy_aks:
+        description: 'Параметр deployAks (use-variable = взять из BICEP_DEPLOY_AKS)'
+        type: choice
+        options:
+          - use-variable
+          - 'true'
+          - 'false'
+        default: use-variable
+      deploy_acr:
+        description: 'Параметр deployAcr (use-variable = взять из BICEP_DEPLOY_ACR)'
+        type: choice
+        options:
+          - use-variable
+          - 'true'
+          - 'false'
+        default: use-variable
 
 permissions:
   id-token: write
@@ -43,7 +61,9 @@ jobs:
           for name in SUB TENANT CLIENT PREFIX LOC; do
             eval "v=\${$name}"
             if [ -z "$v" ]; then
-              echo "Missing value for $name (Azure IDs → Secrets в Environment bicep; BICEP_* → Variables)"
+              echo "Missing value for $name"
+              echo "Azure: Repository или Environment **Secrets** AZURE_SUBSCRIPTION_ID, AZURE_TENANT_ID, AZURE_CLIENT_ID"
+              echo "Bicep: **Variables** BICEP_PREFIX, BICEP_LOCATION (см. «Azure — connection test» Preflight и GITHUB_ACTIONS_VARIABLES.md)"
               exit 1
             fi
           done
@@ -61,6 +81,8 @@ jobs:
 
       - name: Deployment what-if
         env:
+          INPUT_DEPLOY_AKS: ${{ inputs.deploy_aks }}
+          INPUT_DEPLOY_ACR: ${{ inputs.deploy_acr }}
           DEPLOY_AKS: ${{ vars.BICEP_DEPLOY_AKS }}
           DEPLOY_ACR: ${{ vars.BICEP_DEPLOY_ACR }}
           ALERT_SECRET: ${{ secrets.BICEP_ALERT_EMAIL }}
@@ -73,8 +95,17 @@ jobs:
             echo "Set BICEP_ALERT_EMAIL as Environment or repository Variable or Secret."
             exit 1
           fi
-          AKS="${DEPLOY_AKS:-false}"
-          ACR="${DEPLOY_ACR:-false}"
+          if [ "${INPUT_DEPLOY_AKS}" = "use-variable" ]; then
+            AKS="${DEPLOY_AKS:-false}"
+          else
+            AKS="${INPUT_DEPLOY_AKS}"
+          fi
+          if [ "${INPUT_DEPLOY_ACR}" = "use-variable" ]; then
+            ACR="${DEPLOY_ACR:-false}"
+          else
+            ACR="${INPUT_DEPLOY_ACR}"
+          fi
+          echo "what-if deployAks=$AKS deployAcr=$ACR (dispatch overrides use-variable → vars)"
           NAME="gh-whatif-${{ github.run_id }}-${{ github.run_attempt }}"
           az deployment sub what-if \
             --location "${{ vars.BICEP_LOCATION }}" \
