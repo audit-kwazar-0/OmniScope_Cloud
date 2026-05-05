@@ -184,3 +184,13 @@ az role assignment create \
 ## Организационные variables
 
 Если репозиторий в **организации**, те же имена можно задать на уровне **Org → Settings → Variables** и наследовать в репозитории (политика наследования настраивается отдельно). Для личного аккаунта достаточно **repository variables**.
+
+---
+
+## Ошибка `AADSTS700016: Application with identifier '…' was not found in the directory`
+
+Значит **в указанном tenant нет** приложения с таким **Application (client) ID** (или в GitHub в secret попал не тот GUID).
+
+1. Проверьте **`AZURE_TENANT_ID`**: это **Directory (tenant) ID** каталога, где создано **именно это** App registration (Entra → приложение → Overview).  
+2. Проверьте **`AZURE_CLIENT_ID`**: только **Application (client) ID** с той же карточки, не Object ID и не id подписки.  
+3. Локально: `az login --tenant "<TENANT_ID>"` затем `az ad app show --id "<CLIENT_ID>"` — если ошибка, пара tenant/client неверна или приложение в другом каталоге.
