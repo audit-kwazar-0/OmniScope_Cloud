@@ -57,6 +57,25 @@ Or use `envsubst` if your shell has it (see `docs/AKS-ACR-CICD.md`).
 
 ---
 
+## Loki-only observability (Azure Managed Grafana, no Jaeger / OTel Collector)
+
+Set in `.env.deploy`:
+
+- `OBSERVABILITY_LOKI_ONLY=true`
+- `DEPLOY_LOKI=true`
+- `DEPLOY_MANAGED_PROMETHEUS=true` — Bicep deploys **Azure Managed Grafana** (sign-in with **Microsoft Entra ID** / Azure roles, not local `admin`).
+- `DEPLOY_GRAFANA_DASHBOARD=true` — `deploy-project.sh` runs `grafana-sync.sh`: adds/updates **Loki** datasource (public LoadBalancer IP of in-cluster Loki) and imports the Loki NOC dashboard (`GRAFANA_LOKI_DASHBOARD_PATH`); Prometheus JSON dashboards are skipped in this mode.
+
+Then run from repo root: `./scripts/deploy-project.sh`.
+
+The script skips `kubernetes/otel/`, deploys **Loki + Promtail**, sets `OTEL_SDK_DISABLED=true` on sample apps. Open Grafana at **`GRAFANA_URL`** from the deployment output (`az deployment sub show`).
+
+**Note:** Managed Grafana reaches Loki via **HTTP to the AKS LoadBalancer IP** — acceptable for a lab; for production use private connectivity (e.g. Private Link, internal ingress) and tighten network rules.
+
+**RBAC:** Bicep assigns **Grafana Admin** to `GRAFANA_ADMIN_OBJECT_ID`, or (if unset) to the user from `az ad signed-in-user show`, so `grafana-sync.sh` can configure the Loki datasource. New instances may take a few minutes to accept the role; for CI with a service principal, set `GRAFANA_ADMIN_OBJECT_ID` and `GRAFANA_ADMIN_PRINCIPAL_TYPE=ServicePrincipal`.
+
+---
+
 ## 3. Apply to AKS
 
 From the `examples` directory:

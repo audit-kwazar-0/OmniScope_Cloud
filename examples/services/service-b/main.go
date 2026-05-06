@@ -42,6 +42,10 @@ func parseOTLPEndpoint(raw string) (hostport string, err error) {
 }
 
 func setupOTel(ctx context.Context, serviceName string) (shutdown func(context.Context) error, err error) {
+	if strings.EqualFold(strings.TrimSpace(os.Getenv("OTEL_SDK_DISABLED")), "true") {
+		return func(context.Context) error { return nil }, nil
+	}
+
 	raw := strings.TrimSpace(os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"))
 	if raw == "" {
 		raw = "localhost:4318"

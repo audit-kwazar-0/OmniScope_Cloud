@@ -38,7 +38,7 @@ OmniScope_Cloud/
 
 1. Deploy baseline with Bicep (includes AKS + ACR + kubelet **AcrPull** when defaults are used).
 2. Build and push images, apply manifests — full flow: [`examples/README.md`](./examples/README.md) and [`examples/docs/AKS-ACR-CICD.md`](./examples/docs/AKS-ACR-CICD.md).
-3. One-command full flow (infra + apps + smoke): [`scripts/deploy-project.sh`](./scripts/deploy-project.sh) with [`.env.deploy.example`](./.env.deploy.example).
+3. One-command full flow (infra + apps + smoke): [`scripts/deploy-project.sh`](./scripts/deploy-project.sh) with [`.env.deploy.example`](./.env.deploy.example). **Loki-only** logs (Loki + Promtail + **Azure Managed Grafana**, no Jaeger/Collector): `OBSERVABILITY_LOKI_ONLY=true` and `DEPLOY_MANAGED_PROMETHEUS=true` — see [`examples/README.md`](./examples/README.md).
 4. Optional in-cluster Alertmanager deploy: [`examples/kubernetes/alertmanager/`](./examples/kubernetes/alertmanager/) + [`scripts/create-alertmanager-secret.sh`](./scripts/create-alertmanager-secret.sh).
 
 ### Azure baseline (Bicep)

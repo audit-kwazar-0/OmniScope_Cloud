@@ -86,6 +86,8 @@ az deployment sub create \
 - `deployAcr`: when `true` and `deployAks` is `true`, create **ACR** and assign **AcrPull** to the cluster kubelet (default `true`)
 - `deployAksDiagnostics`: when `true` and `deployAks` is `true`, enable AKS control-plane diagnostics to LAW (`kube-apiserver`, `kube-audit`, etc.) (default `true`)
 - `deployManagedPrometheus`: deploy Azure Monitor Workspace + Managed Grafana (default `true`)
+- `grafanaAdminObjectId`: optional Entra **object id** (user, group, or SPN) granted **Grafana Admin** on Managed Grafana so `az grafana` and the UI work without manual RBAC. Leave empty to skip (then assign the role manually in Azure Portal).
+- `grafanaAdminPrincipalType`: `User`, `Group`, or `ServicePrincipal` (default `User`) — must match `grafanaAdminObjectId`.
 - `deployLogExport`: deploy LAW Data Export to Event Hub (for OpenSearch/Elastic downstream) (default `true`)
 - `teamsWebhookUri`: optional webhook URL for Action Group simulation (MS Teams)
 - `acrNameOverride`: optional ACR name (letters and digits only, 5–50 chars, globally unique). If empty, a name is derived from `uniqueString`
@@ -103,6 +105,7 @@ az deployment sub create \
 
 ### Notes
 
+- If Bicep fails with **RoleAssignmentExists** on Managed Grafana, you already have **Grafana Admin** for the same principal at that scope (e.g. created manually with `az role assignment create`). Remove the duplicate assignment on the Grafana resource, then redeploy — or rely on the existing assignment and temporarily omit `grafanaAdminObjectId` from the template (set to empty and remove the `grafanaAdminAssignment` resource) if you maintain RBAC only by hand.
 - The load test is intentionally noisy (CPU stress). Keep it in non-prod subscriptions/resource groups.
 - The template creates a **User Assigned Identity** used only by the post-install `deploymentScript` and grants it **Azure Kubernetes Service Contributor Role** on the AKS cluster resource (needed for admin kubeconfig + `kubectl apply`).
 - **New subscriptions:** register `Microsoft.OperationsManagement` before first AKS with Container Insights: `az provider register --namespace Microsoft.OperationsManagement --wait`.

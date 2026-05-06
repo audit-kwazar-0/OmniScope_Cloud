@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.42.1.51946",
-      "templateHash": "10657271815743344091"
+      "templateHash": "10897797694296340541"
     }
   },
   "parameters": {
@@ -134,6 +134,25 @@
       "metadata": {
         "description": "Force rerun of the AKS post-install kubectl deployment (any new string triggers update)."
       }
+    },
+    "grafanaAdminObjectId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Entra object id granted Grafana Admin on Managed Grafana (for az grafana / UI). Leave empty; deploy script can fill from signed-in user."
+      }
+    },
+    "grafanaAdminPrincipalType": {
+      "type": "string",
+      "defaultValue": "User",
+      "allowedValues": [
+        "User",
+        "Group",
+        "ServicePrincipal"
+      ],
+      "metadata": {
+        "description": "Principal type for grafanaAdminObjectId."
+      }
     }
   },
   "variables": {
@@ -212,6 +231,12 @@
           },
           "teamsWebhookUri": {
             "value": "[parameters('teamsWebhookUri')]"
+          },
+          "grafanaAdminObjectId": {
+            "value": "[parameters('grafanaAdminObjectId')]"
+          },
+          "grafanaAdminPrincipalType": {
+            "value": "[parameters('grafanaAdminPrincipalType')]"
           }
         },
         "template": {
@@ -221,7 +246,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.42.1.51946",
-              "templateHash": "6738081362868678558"
+              "templateHash": "146454316175375832"
             }
           },
           "parameters": {
@@ -324,7 +349,29 @@
               "metadata": {
                 "description": "Optional Teams webhook endpoint for Action Group simulation."
               }
+            },
+            "grafanaAdminObjectId": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "Entra object id (user, group, or SPN) granted Grafana Admin on Managed Grafana (for portal + az grafana API). Leave empty to skip."
+              }
+            },
+            "grafanaAdminPrincipalType": {
+              "type": "string",
+              "defaultValue": "User",
+              "allowedValues": [
+                "User",
+                "Group",
+                "ServicePrincipal"
+              ],
+              "metadata": {
+                "description": "Principal type for grafanaAdminObjectId: User, Group, or ServicePrincipal."
+              }
             }
+          },
+          "variables": {
+            "grafanaAdminRoleId": "22926164-76b3-42b3-bc55-97df8dab3e41"
           },
           "resources": [
             {
@@ -411,6 +458,21 @@
               },
               "dependsOn": [
                 "[resourceId('Microsoft.Monitor/accounts', parameters('azureMonitorWorkspaceName'))]"
+              ]
+            },
+            {
+              "condition": "[and(parameters('deployManagedPrometheus'), not(empty(parameters('grafanaAdminObjectId'))))]",
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.Dashboard/grafana', parameters('grafanaName'))]",
+              "name": "[guid(resourceId('Microsoft.Dashboard/grafana', parameters('grafanaName')), parameters('grafanaAdminObjectId'), variables('grafanaAdminRoleId'))]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('grafanaAdminRoleId'))]",
+                "principalId": "[parameters('grafanaAdminObjectId')]",
+                "principalType": "[parameters('grafanaAdminPrincipalType')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Dashboard/grafana', parameters('grafanaName'))]"
               ]
             },
             {
@@ -505,6 +567,7 @@
               },
               "dependsOn": [
                 "[resourceId('Microsoft.Insights/actionGroups', parameters('actionGroupName'))]",
+                "[resourceId('Microsoft.Insights/components', parameters('appInsightsName'))]",
                 "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('lawName'))]"
               ]
             },
@@ -547,6 +610,7 @@
               },
               "dependsOn": [
                 "[resourceId('Microsoft.Insights/actionGroups', parameters('actionGroupName'))]",
+                "[resourceId('Microsoft.Insights/components', parameters('appInsightsName'))]",
                 "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('lawName'))]"
               ]
             }

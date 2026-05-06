@@ -9,6 +9,8 @@
     "deployAcr": { "value": false },
     "deployManagedPrometheus": { "value": false },
     "deployLogExport": { "value": false },
-    "tags": { "value": { "environment": "test", "project": "omniscope" } }
+    "tags": { "value": { "environment": "test", "project": "omniscope" } },
+    "grafanaAdminObjectId": { "value": "" },
+    "grafanaAdminPrincipalType": { "value": "User" }
   }
 }

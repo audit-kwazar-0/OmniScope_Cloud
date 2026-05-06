@@ -54,6 +54,7 @@ ALERT_WEBHOOK_URL="${ALERT_WEBHOOK_URL:-}"
 KEYVAULT_NAME="${KEYVAULT_NAME:-}"
 SMTP_PASSWORD_SECRET_NAME="${SMTP_PASSWORD_SECRET_NAME:-smtp-password}"
 DEPLOY_LOKI="${DEPLOY_LOKI:-true}"
+OBSERVABILITY_LOKI_ONLY="${OBSERVABILITY_LOKI_ONLY:-false}"
 LOKI_AZURE_STORAGE_ACCOUNT="${LOKI_AZURE_STORAGE_ACCOUNT:-}"
 LOKI_AZURE_STORAGE_CONTAINER="${LOKI_AZURE_STORAGE_CONTAINER:-loki-data}"
 LOKI_AZURE_STORAGE_RESOURCE_GROUP="${LOKI_AZURE_STORAGE_RESOURCE_GROUP:-}"
@@ -97,6 +98,15 @@ if [[ "$WANT_SMTP" == "true" ]]; then
   fi
 fi
 
+if [[ "$OBSERVABILITY_LOKI_ONLY" == "true" && "$DEPLOY_LOKI" != "true" ]]; then
+  echo "OBSERVABILITY_LOKI_ONLY=true requires DEPLOY_LOKI=true." >&2
+  exit 1
+fi
+if [[ "$OBSERVABILITY_LOKI_ONLY" == "true" && "$DEPLOY_MANAGED_PROMETHEUS" != "true" ]]; then
+  echo "OBSERVABILITY_LOKI_ONLY=true is wired for Azure Managed Grafana: set DEPLOY_MANAGED_PROMETHEUS=true in .env (Bicep creates Managed Grafana + AMW)." >&2
+  exit 1
+fi
+
 echo "[1/8] Azure preflight"
 az account show -o table >/dev/null
 az provider register --namespace Microsoft.OperationsManagement --wait >/dev/null
@@ -108,6 +118,15 @@ cleanup_tmp() {
 trap cleanup_tmp EXIT
 
 echo "[2/8] Build deployment parameters"
+GRAFANA_ADMIN_OID="${GRAFANA_ADMIN_OBJECT_ID:-}"
+if [[ "$DEPLOY_MANAGED_PROMETHEUS" == "true" && -z "$GRAFANA_ADMIN_OID" ]]; then
+  GRAFANA_ADMIN_OID="$(az ad signed-in-user show --query id -o tsv 2>/dev/null || true)"
+fi
+if [[ "$DEPLOY_MANAGED_PROMETHEUS" == "true" && -z "$GRAFANA_ADMIN_OID" ]]; then
+  echo "DEPLOY_MANAGED_PROMETHEUS=true requires GRAFANA_ADMIN_OBJECT_ID (Entra object id) or az login as a user (for Grafana Admin role assignment)." >&2
+  exit 1
+fi
+GRAFANA_ADMIN_PTYPE="${GRAFANA_ADMIN_PRINCIPAL_TYPE:-User}"
 jq \
   --arg prefix "$OMNISCOPE_PREFIX" \
   --arg location "$AZ_LOCATION" \
@@ -115,6 +134,8 @@ jq \
   --arg vmSize "$AKS_SYSTEM_VM_SIZE" \
   --arg acrOverride "$ACR_NAME_OVERRIDE" \
   --arg webhook "$TEAMS_WEBHOOK_URI" \
+  --arg grafanaOid "$GRAFANA_ADMIN_OID" \
+  --arg grafanaPtype "$GRAFANA_ADMIN_PTYPE" \
   --argjson deployAks "$DEPLOY_AKS" \
   --argjson deployAcr "$DEPLOY_ACR" \
   --argjson deployProm "$DEPLOY_MANAGED_PROMETHEUS" \
@@ -134,7 +155,9 @@ jq \
    | .parameters.aksSystemNodeCount.value = $nodeCount
    | .parameters.stressCpuWorkers.value = $stressWorkers
    | .parameters.acrNameOverride.value = $acrOverride
-   | .parameters.teamsWebhookUri.value = $webhook' \
+   | .parameters.teamsWebhookUri.value = $webhook
+   | .parameters.grafanaAdminObjectId.value = (if $deployProm then $grafanaOid else "" end)
+   | .parameters.grafanaAdminPrincipalType.value = $grafanaPtype' \
   "$BICEP_DIR/parameters.test-aks.json" > "$TMP_PARAMS"
 
 echo "[3/8] Deploy infrastructure (Bicep)"
@@ -189,23 +212,34 @@ docker push "${ACR_LOGIN_SERVER}/omniscope/service-b:${SERVICE_B_TAG}"
 
 echo "[7/8] Deploy workloads to AKS"
 kubectl apply -f "$ROOT_DIR/examples/kubernetes/namespace.yaml"
-kubectl apply -f "$ROOT_DIR/examples/kubernetes/otel/"
+if [[ "$OBSERVABILITY_LOKI_ONLY" == "true" ]]; then
+  echo "OBSERVABILITY_LOKI_ONLY=true — removing Jaeger/OTel Collector if present; skipping their manifests."
+  kubectl delete deployment jaeger otel-collector -n omniscope --ignore-not-found
+  kubectl delete svc jaeger otel-collector -n omniscope --ignore-not-found
+else
+  kubectl apply -f "$ROOT_DIR/examples/kubernetes/otel/"
+fi
 if [[ "$DEPLOY_LOKI" == "true" ]]; then
   kubectl -n omniscope create secret generic loki-storage \
-    --from-literal=LOKI_S3_BUCKET="$LOKI_S3_BUCKET" \
-    --from-literal=LOKI_S3_REGION="$LOKI_S3_REGION" \
-    --from-literal=LOKI_S3_ENDPOINT="$LOKI_S3_ENDPOINT" \
-    --from-literal=AWS_ACCESS_KEY_ID="$LOKI_AWS_ACCESS_KEY_ID" \
-    --from-literal=AWS_SECRET_ACCESS_KEY="$LOKI_AWS_SECRET_ACCESS_KEY" \
+    --from-literal=AZURE_STORAGE_ACCOUNT_NAME="$LOKI_AZURE_STORAGE_ACCOUNT" \
+    --from-literal=AZURE_STORAGE_ACCOUNT_KEY="$LOKI_STORAGE_KEY" \
+    --from-literal=LOKI_AZURE_CONTAINER="$LOKI_AZURE_STORAGE_CONTAINER" \
     --dry-run=client -o yaml | kubectl apply -f -
   kubectl apply -f "$ROOT_DIR/examples/kubernetes/loki/"
   kubectl -n omniscope rollout status deploy/loki --timeout=300s
   kubectl -n omniscope rollout status daemonset/promtail --timeout=300s
 fi
+if [[ "$OBSERVABILITY_LOKI_ONLY" == "true" ]]; then
+  OTEL_SDK_SUBST="true"
+else
+  OTEL_SDK_SUBST="false"
+fi
 sed "s|__ACR_LOGIN_SERVER__|${ACR_LOGIN_SERVER}|g" "$ROOT_DIR/examples/kubernetes/apps/service-a.yaml" | \
-  sed "s|:latest|:${SERVICE_A_TAG}|g" | kubectl apply -f -
+  sed "s|:latest|:${SERVICE_A_TAG}|g" | \
+  sed "s|__OTEL_SDK_DISABLED__|${OTEL_SDK_SUBST}|g" | kubectl apply -f -
 sed "s|__ACR_LOGIN_SERVER__|${ACR_LOGIN_SERVER}|g" "$ROOT_DIR/examples/kubernetes/apps/service-b.yaml" | \
-  sed "s|:latest|:${SERVICE_B_TAG}|g" | kubectl apply -f -
+  sed "s|:latest|:${SERVICE_B_TAG}|g" | \
+  sed "s|__OTEL_SDK_DISABLED__|${OTEL_SDK_SUBST}|g" | kubectl apply -f -
 kubectl -n omniscope rollout status deploy/service-a --timeout=300s
 kubectl -n omniscope rollout status deploy/service-b --timeout=300s
 

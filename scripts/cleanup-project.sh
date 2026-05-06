@@ -20,8 +20,27 @@ fi
 
 OMNISCOPE_PREFIX="${OMNISCOPE_PREFIX:-omniscope-aks-test}"
 RG_NAME="${RG_NAME_OVERRIDE:-${OMNISCOPE_PREFIX}-rg}"
+WAIT_DELETE="${WAIT_DELETE:-}"
 
-echo "About to delete resource group: $RG_NAME"
+if [[ "${WAIT_DELETE:-}" =~ ^(1|true|yes)$ ]]; then
+  echo "WAIT_DELETE=true — дождёмся удаления RG (может занять несколько минут)."
+else
+  echo "Подсказка: полная очистка перед повторным deploy — WAIT_DELETE=true $0"
+fi
+
+if ! az group show --name "$RG_NAME" --output none 2>/dev/null; then
+  echo "Resource group не найдена или уже удалена: $RG_NAME — очистка не нужна."
+  exit 0
+fi
+
+echo "Deleting resource group: $RG_NAME"
 az group delete --name "$RG_NAME" --yes --no-wait
-echo "Deletion started. Check status with:"
-echo "az group show -n \"$RG_NAME\" --query properties.provisioningState -o tsv"
+
+if [[ "${WAIT_DELETE:-}" =~ ^(1|true|yes)$ ]]; then
+  az group wait --name "$RG_NAME" --deleted || true
+  echo "RG $RG_NAME удалена или команда wait завершена."
+else
+  echo "Deletion started (--no-wait). Status:"
+  echo "  az group show -n \"$RG_NAME\" --query properties.provisioningState -o tsv"
+  echo "Перед ./scripts/deploy-project.sh дождитесь статуса Deleting→отсутствует, иначе Bicep может упасть."
+fi

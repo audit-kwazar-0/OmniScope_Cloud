@@ -30,6 +30,8 @@ spec:
               value: "http://otel-collector:4318"
             - name: OTEL_SERVICE_NAME
               value: "service-b"
+            - name: OTEL_SDK_DISABLED
+              value: "__OTEL_SDK_DISABLED__"
 ---
 apiVersion: v1
 kind: Service

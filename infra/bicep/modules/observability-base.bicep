@@ -49,6 +49,16 @@ param eventHubName string
 @secure()
 param teamsWebhookUri string = ''
 
+@description('Entra object id (user, group, or SPN) granted Grafana Admin on Managed Grafana (for portal + az grafana API). Leave empty to skip.')
+param grafanaAdminObjectId string = ''
+
+@description('Principal type for grafanaAdminObjectId: User, Group, or ServicePrincipal.')
+@allowed(['User', 'Group', 'ServicePrincipal'])
+param grafanaAdminPrincipalType string = 'User'
+
+// Built-in: Grafana Admin (configure datasources/API access for automation and admins)
+var grafanaAdminRoleId = '22926164-76b3-42b3-bc55-97df8dab3e41'
+
 resource law 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
   name: lawName
   location: location
@@ -133,6 +143,16 @@ resource managedGrafana 'Microsoft.Dashboard/grafana@2023-09-01' = if (deployMan
   }
 }
 
+resource grafanaAdminAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deployManagedPrometheus && !empty(grafanaAdminObjectId)) {
+  name: guid(managedGrafana.id, grafanaAdminObjectId, grafanaAdminRoleId)
+  scope: managedGrafana
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', grafanaAdminRoleId)
+    principalId: grafanaAdminObjectId
+    principalType: grafanaAdminPrincipalType
+  }
+}
+
 resource ehNamespace 'Microsoft.EventHub/namespaces@2022-10-01-preview' = if (deployLogExport) {
   name: eventHubNamespaceName
   location: location
@@ -181,6 +201,10 @@ resource cpuHighAlert 'Microsoft.Insights/scheduledQueryRules@2023-12-01' = {
   name: '${actionGroupName}-aks-cpu-high'
   location: location
   tags: tags
+  dependsOn: [
+    law
+    appInsights
+  ]
   properties: {
     description: 'AKS node CPU usage > 80% for 5 minutes'
     enabled: true
@@ -218,6 +242,10 @@ resource appErrorsAlert 'Microsoft.Insights/scheduledQueryRules@2023-12-01' = {
   name: '${actionGroupName}-omniscope-errors'
   location: location
   tags: tags
+  dependsOn: [
+    law
+    appInsights
+  ]
   properties: {
     description: 'OmniScope error ratio > 5% for last 10 minutes'
     enabled: true

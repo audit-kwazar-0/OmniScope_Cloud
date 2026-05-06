@@ -57,6 +57,13 @@ param stressCpuWorkers int = 4
 @description('Force rerun of the AKS post-install kubectl deployment (any new string triggers update).')
 param loadTestDeployTag string = utcNow()
 
+@description('Entra object id granted Grafana Admin on Managed Grafana (for az grafana / UI). Leave empty; deploy script can fill from signed-in user.')
+param grafanaAdminObjectId string = ''
+
+@description('Principal type for grafanaAdminObjectId.')
+@allowed(['User', 'Group', 'ServicePrincipal'])
+param grafanaAdminPrincipalType string = 'User'
+
 var rgName = '${prefix}-rg'
 var acrRegistryName = !empty(acrNameOverride)
   ? take(replace(toLower(acrNameOverride), '-', ''), 50)
@@ -94,6 +101,8 @@ module observabilityBase 'modules/observability-base.bicep' = {
     eventHubNamespaceName: eventHubNamespaceName
     eventHubName: eventHubName
     teamsWebhookUri: teamsWebhookUri
+    grafanaAdminObjectId: grafanaAdminObjectId
+    grafanaAdminPrincipalType: grafanaAdminPrincipalType
   }
 }
 

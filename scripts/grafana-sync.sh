@@ -20,6 +20,11 @@ omniscope_grafana_dashboard_sync() {
     return 1
   fi
 
+  if ! az grafana data-source list --resource-group "$RG_NAME" --name "$GRAFANA_NAME" --output none 2>/dev/null; then
+    echo "Managed Grafana API access denied. Assign role Grafana Admin to your identity on the Grafana resource (Bicep can set this via grafanaAdminObjectId)." >&2
+    return 1
+  fi
+
   PROM_DS_UID="$(az grafana data-source list --resource-group "$RG_NAME" --name "$GRAFANA_NAME" --query "[?type=='prometheus']|[0].uid" -o tsv)"
   LOKI_DS_UID=""
   if [[ "$DEPLOY_LOKI" == "true" ]]; then
@@ -45,9 +50,17 @@ omniscope_grafana_dashboard_sync() {
       LOKI_DS_UID="$(az grafana data-source list --resource-group "$RG_NAME" --name "$GRAFANA_NAME" \
         --query "[?type=='loki' && name=='${LOKI_DS_NAME}']|[0].uid" -o tsv)"
     fi
+    if [[ -n "$LOKI_EXTERNAL_IP" && ( -z "$LOKI_DS_UID" || "$LOKI_DS_UID" == "null" ) ]]; then
+      echo "Failed to create or read Loki datasource in Managed Grafana (check API errors above)." >&2
+      return 1
+    fi
   fi
 
   for DASHBOARD_FILE in "$GRAFANA_DASHBOARD_PATH" "$GRAFANA_ALERTING_DASHBOARD_PATH" "$GRAFANA_PLATFORM_DASHBOARD_PATH" "$GRAFANA_LOKI_DASHBOARD_PATH"; do
+    if [[ "${OBSERVABILITY_LOKI_ONLY:-false}" == "true" && "$DASHBOARD_FILE" != "$GRAFANA_LOKI_DASHBOARD_PATH" ]]; then
+      echo "OBSERVABILITY_LOKI_ONLY=true — skipping Prometheus-oriented dashboard: $DASHBOARD_FILE"
+      continue
+    fi
     if [[ ! -f "$DASHBOARD_FILE" ]]; then
       echo "Dashboard file not found: $DASHBOARD_FILE" >&2
       return 1
