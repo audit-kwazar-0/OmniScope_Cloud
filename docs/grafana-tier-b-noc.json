@@ -1,0 +1,128 @@
+{
+  "__inputs": [
+    { "name": "DS_AM", "label": "Azure Monitor", "type": "datasource", "pluginId": "grafana-azure-monitor-datasource", "pluginName": "Azure Monitor" },
+    { "name": "DS_LOKI", "label": "Loki", "type": "datasource", "pluginId": "loki", "pluginName": "Loki" }
+  ],
+  "uid": "omniscope-tier-b",
+  "title": "OmniScope — Tier B — NOC / triage",
+  "tags": ["OmniScope", "tier:B", "NOC", "Azure"],
+  "schemaVersion": 39,
+  "version": 1,
+  "timezone": "browser",
+  "refresh": "2m",
+  "time": { "from": "now-6h", "to": "now" },
+  "editable": true,
+  "panels": [
+    {
+      "type": "row",
+      "title": "Платформа (Container Insights)",
+      "id": 1,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 2,
+      "type": "table",
+      "title": "Топ причин KubeEvents (24h)",
+      "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "${DS_AM}" },
+      "gridPos": { "h": 10, "w": 14, "x": 0, "y": 1 },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "Azure Log Analytics",
+          "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "${DS_AM}" },
+          "azureLogAnalytics": {
+            "query": "KubeEvents\n| where TimeGenerated > ago(24h)\n| where ClusterName =~ \"__AKS_NAME__\"\n| summarize C = count() by Reason\n| top 20 by C desc",
+            "resources": ["__LOG_ANALYTICS_ARM_ID__"],
+            "resultFormat": "table"
+          }
+        }
+      ],
+      "options": { "showHeader": true, "cellHeight": "sm", "sortBy": [{ "displayName": "C", "desc": true }] },
+      "fieldConfig": { "defaults": { "custom": { "filterable": true } }, "overrides": [] }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "FailedScheduling (24h)",
+      "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "${DS_AM}" },
+      "gridPos": { "h": 5, "w": 5, "x": 14, "y": 1 },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "Azure Log Analytics",
+          "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "${DS_AM}" },
+          "azureLogAnalytics": {
+            "query": "KubeEvents\n| where TimeGenerated > ago(24h)\n| where ClusterName =~ \"__AKS_NAME__\"\n| where Reason == \"FailedScheduling\"\n| summarize FS = count()",
+            "resources": ["__LOG_ANALYTICS_ARM_ID__"],
+            "resultFormat": "table"
+          }
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "values": false, "fields": "" }, "colorMode": "value", "textMode": "value" },
+      "fieldConfig": { "defaults": { "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] } }, "overrides": [] }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Error events (24h)",
+      "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "${DS_AM}" },
+      "gridPos": { "h": 5, "w": 5, "x": 19, "y": 1 },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "Azure Log Analytics",
+          "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "${DS_AM}" },
+          "azureLogAnalytics": {
+            "query": "KubeEvents\n| where TimeGenerated > ago(24h)\n| where ClusterName =~ \"__AKS_NAME__\"\n| where KubeEventType =~ \"Error\"\n| summarize Err = count()",
+            "resources": ["__LOG_ANALYTICS_ARM_ID__"],
+            "resultFormat": "table"
+          }
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "values": false, "fields": "" }, "colorMode": "value", "textMode": "value" },
+      "fieldConfig": { "defaults": { "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] } }, "overrides": [] }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Warning events (24h)",
+      "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "${DS_AM}" },
+      "gridPos": { "h": 5, "w": 5, "x": 19, "y": 6 },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "Azure Log Analytics",
+          "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "${DS_AM}" },
+          "azureLogAnalytics": {
+            "query": "KubeEvents\n| where TimeGenerated > ago(24h)\n| where ClusterName =~ \"__AKS_NAME__\"\n| where KubeEventType =~ \"Warning\"\n| summarize W = count()",
+            "resources": ["__LOG_ANALYTICS_ARM_ID__"],
+            "resultFormat": "table"
+          }
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "values": false, "fields": "" }, "colorMode": "value", "textMode": "value" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] }
+    },
+    {
+      "type": "row",
+      "title": "Переходы",
+      "id": 10,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 12 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 11,
+      "type": "text",
+      "title": "Приложения / логи",
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 13 },
+      "options": {
+        "mode": "markdown",
+        "content": "- **Loki NOC:** [Открыть дашборд ошибок](/d/omniscope-noc-loki-v1)\n- **Explore Loki:** [/explore](/explore)\n- **Tier E (глубина логов):** [/d/omniscope-tier-e](/d/omniscope-tier-e)\n"
+      },
+      "fieldConfig": { "defaults": {}, "overrides": [] }
+    }
+  ]
+}

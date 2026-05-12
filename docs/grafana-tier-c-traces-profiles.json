@@ -1,0 +1,54 @@
+{
+  "__inputs": [
+    { "name": "DS_TEMPO", "label": "Tempo", "type": "datasource", "pluginId": "tempo", "pluginName": "Tempo" },
+    { "name": "DS_PYROSCOPE", "label": "Pyroscope", "type": "datasource", "pluginId": "grafana-pyroscope-datasource", "pluginName": "Pyroscope" },
+    { "name": "DS_LOKI", "label": "Loki", "type": "datasource", "pluginId": "loki", "pluginName": "Loki" }
+  ],
+  "uid": "omniscope-tier-c-trace-profile",
+  "title": "OmniScope — Tier C — Traces & profiles",
+  "tags": ["OmniScope", "tier:C", "Tempo", "Pyroscope", "Loki"],
+  "schemaVersion": 39,
+  "version": 1,
+  "timezone": "browser",
+  "refresh": "30s",
+  "time": { "from": "now-1h", "to": "now" },
+  "editable": true,
+  "panels": [
+    {
+      "type": "row",
+      "title": "Phase 3: trace correlation",
+      "id": 1,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 2,
+      "type": "text",
+      "title": "Trace drilldown runbook",
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 1 },
+      "options": {
+        "mode": "markdown",
+        "content": "1. Open **Tier C RED metrics** and identify a spike.\n2. Open **Explore Tempo** with service filter and matching time range.\n3. Pick a slow/error trace and use **Trace to logs** (via trace_id).\n4. Pivot into **NOC Loki** for pod-level evidence.\n\nDirect links:\n- [Explore Tempo](/explore?orgId=${__org.id}&left=%5B%22${DS_TEMPO}%22%2C%7B%22query%22%3A%22%22%7D%5D)\n- [Explore Loki](/explore?orgId=${__org.id}&left=%5B%22${DS_LOKI}%22%2C%7B%22query%22%3A%22%7Bnamespace%3D~%5C%22.%2B%5C%22%7D%22%7D%5D)\n- [NOC Loki dashboard](/d/omniscope-noc-loki-v1)"
+      }
+    },
+    {
+      "type": "row",
+      "title": "Phase 4: profile correlation",
+      "id": 3,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 7 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 4,
+      "type": "text",
+      "title": "Profile drilldown runbook",
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 8 },
+      "options": {
+        "mode": "markdown",
+        "content": "Use profiles after finding a hot trace/log pattern:\n\n- Open **Pyroscope Explore** and select a service profile.\n- Compare flamegraph during incident window.\n- Confirm CPU hotspots and expensive call paths.\n\nDirect link:\n- [Explore Pyroscope](/explore?orgId=${__org.id}&left=%5B%22${DS_PYROSCOPE}%22%2C%7B%22query%22%3A%22%22%7D%5D)"
+      }
+    }
+  ]
+}

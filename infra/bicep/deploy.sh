@@ -63,7 +63,8 @@ deploy() {
     --location "$LOCATION" \
     --name "$DEPLOYMENT_NAME" \
     --template-file "$TEMPLATE" \
-    --parameters "@$PARAMS_FILE"
+    --parameters "@$PARAMS_FILE" \
+    --output none
 }
 
 case "$MODE" in

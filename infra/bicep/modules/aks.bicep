@@ -39,6 +39,19 @@ param loadTestDeployTag string = utcNow()
 @description('Log Analytics workspace resource ID for Container Insights addon (optional).')
 param logAnalyticsWorkspaceId string
 
+@description('Enable Azure Policy addon in AKS.')
+param enableAzurePolicyAddon bool = false
+
+@description('Enable Azure Key Vault Secrets Provider addon in AKS.')
+param enableKeyVaultSecretsProvider bool = false
+
+@description('Enable secret rotation for Azure Key Vault Secrets Provider.')
+param keyVaultSecretRotationEnabled bool = true
+
+@description('Rotation poll interval for Azure Key Vault Secrets Provider (for example: 2m, 5m).')
+param keyVaultRotationPollInterval string = '2m'
+
+
 @description('AKS VNet CIDR.')
 param vnetAddressPrefix string = '10.224.0.0/16'
 
@@ -51,6 +64,28 @@ param privateEndpointsSubnetPrefix string = '10.224.8.0/24'
 var deployerName = '${prefix}-aks-deployer-uai'
 var aksContributorRoleDefinitionId = 'ed7f3fbd-7b88-4dd4-9017-9adb7ce333f8'
 var vnetName = '${prefix}-vnet'
+var addonProfilesBase = {
+  omsagent: {
+    enabled: true
+    config: {
+      logAnalyticsWorkspaceResourceID: logAnalyticsWorkspaceId
+    }
+  }
+}
+var addonProfilesAzurePolicy = enableAzurePolicyAddon ? {
+  azurepolicy: {
+    enabled: true
+  }
+} : {}
+var addonProfilesKeyVault = enableKeyVaultSecretsProvider ? {
+  azureKeyvaultSecretsProvider: {
+    enabled: true
+    config: {
+      enableSecretRotation: string(keyVaultSecretRotationEnabled)
+      rotationPollInterval: keyVaultRotationPollInterval
+    }
+  }
+} : {}
 
 resource vnet 'Microsoft.Network/virtualNetworks@2023-09-01' = if (deployCluster) {
   name: vnetName
@@ -114,14 +149,7 @@ resource aks 'Microsoft.ContainerService/managedClusters@2025-02-01' = if (deplo
       loadBalancerSku: 'standard'
       outboundType: 'loadBalancer'
     }
-    addonProfiles: {
-      omsagent: {
-        enabled: true
-        config: {
-          logAnalyticsWorkspaceResourceID: logAnalyticsWorkspaceId
-        }
-      }
-    }
+    addonProfiles: union(addonProfilesBase, addonProfilesAzurePolicy, addonProfilesKeyVault)
   }
 }
 

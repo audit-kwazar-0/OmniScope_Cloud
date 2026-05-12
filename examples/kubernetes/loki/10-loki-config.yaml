@@ -48,9 +48,9 @@ data:
       max_outstanding_per_tenant: 8192
 
     limits_config:
-      retention_period: 168h
+      retention_period: __LOKI_RETENTION_HOURS__h
       reject_old_samples: true
-      reject_old_samples_max_age: 168h
+      reject_old_samples_max_age: __LOKI_RETENTION_HOURS__h
       split_queries_by_interval: 15m
       max_query_parallelism: 8
 
@@ -88,6 +88,12 @@ data:
               expression: '^(?P<app>[a-z0-9-]+?)(?:-[a-f0-9]{9,10})?(?:-[a-z0-9]{5}|-[0-9]+)?$'
           - labels:
               app:
+          - match:
+              selector: '{namespace=~"__PROMTAIL_DROP_NAMESPACE_REGEX__"}'
+              action: drop
+          - match:
+              selector: '{container=~"__PROMTAIL_DROP_CONTAINER_REGEX__"}'
+              action: drop
         static_configs:
           - targets:
               - localhost

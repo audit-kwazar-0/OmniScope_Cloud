@@ -1,0 +1,100 @@
+{
+  "__inputs": [
+    { "name": "DS_LOKI", "label": "Loki", "type": "datasource", "pluginId": "loki", "pluginName": "Loki" }
+  ],
+  "uid": "omniscope-tier-c",
+  "title": "OmniScope — Tier C — Workload (приложения)",
+  "tags": ["OmniScope", "tier:C", "Loki", "apps"],
+  "schemaVersion": 39,
+  "version": 1,
+  "timezone": "browser",
+  "refresh": "30s",
+  "time": { "from": "now-1h", "to": "now" },
+  "editable": true,
+  "templating": {
+    "list": [
+      {
+        "name": "namespace",
+        "label": "namespace",
+        "type": "query",
+        "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
+        "definition": "label_values({job=\"kubernetes-pods\"}, namespace)",
+        "query": { "query": "label_values({job=\"kubernetes-pods\"}, namespace)", "refId": "NamespaceVar" },
+        "refresh": 2,
+        "sort": 1,
+        "includeAll": true,
+        "allValue": ".+",
+        "multi": false,
+        "current": { "text": "omniscope", "value": "omniscope", "selected": true }
+      },
+      {
+        "name": "app",
+        "label": "app",
+        "type": "query",
+        "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
+        "definition": "label_values({namespace=~\"$namespace\", app=~\".+\"}, app)",
+        "query": { "query": "label_values({namespace=~\"$namespace\", app=~\".+\"}, app)", "refId": "AppVar" },
+        "refresh": 2,
+        "sort": 1,
+        "includeAll": true,
+        "allValue": ".+",
+        "multi": false,
+        "current": { "text": "All", "value": ".+", "selected": true }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "Сигналы по логам (proxy для RPS/latency без APM)",
+      "id": 1,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Log volume (все строки)",
+      "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 1 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({namespace=~\"$namespace\", app=~\"$app\"}[$__interval]))",
+          "queryType": "range",
+          "legendFormat": "lines"
+        }
+      ],
+      "options": { "legend": { "showLegend": false } },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] }
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Совпадения error|fail|exception (volume)",
+      "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 1 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({namespace=~\"$namespace\", app=~\"$app\"} |~ `(?i)error|fail|exception` [$__interval]))",
+          "queryType": "range",
+          "legendFormat": "errors"
+        }
+      ],
+      "options": { "legend": { "showLegend": false } },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] }
+    },
+    {
+      "id": 4,
+      "type": "text",
+      "title": "Примечание",
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 9 },
+      "options": {
+        "mode": "markdown",
+        "content": "Для настоящих **RPS / latency / error rate** нужны метрики приложения (Prometheus/App Insights). Здесь — **прокси-сигналы по логам**.\n"
+      }
+    }
+  ]
+}

@@ -9,18 +9,20 @@
     }
   ],
   "__requires": [
-    { "type": "grafana", "id": "grafana", "name": "Grafana", "version": "10.0.0" },
+    { "type": "grafana", "id": "grafana", "name": "Grafana", "version": "12.3.1" },
     { "type": "datasource", "id": "loki", "name": "Loki", "version": "2.9.0" },
     { "type": "panel", "id": "stat", "name": "Stat", "version": "" },
     { "type": "panel", "id": "gauge", "name": "Gauge", "version": "" },
     { "type": "panel", "id": "timeseries", "name": "Time series", "version": "" },
     { "type": "panel", "id": "barchart", "name": "Bar chart", "version": "" },
-    { "type": "panel", "id": "logs", "name": "Logs", "version": "" }
+    { "type": "panel", "id": "logs", "name": "Logs", "version": "" },
+    { "type": "panel", "id": "table", "name": "Table", "version": "" }
   ],
   "uid": "omniscope-noc-loki-v1",
   "title": "OmniScope NOC (Loki)",
+  "tags": ["OmniScope", "NOC", "Loki", "AKS"],
   "schemaVersion": 39,
-  "version": 1,
+  "version": 15,
   "style": "dark",
   "editable": true,
   "timezone": "browser",
@@ -66,6 +68,23 @@
         "allValue": ".+",
         "multi": false,
         "current": { "text": "All", "value": ".+", "selected": true }
+      },
+      {
+        "name": "pod",
+        "label": "pod",
+        "type": "query",
+        "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
+        "definition": "label_values({namespace=~\"$namespace\", app=~\"$app\", job=\"kubernetes-pods\"}, pod)",
+        "query": {
+          "query": "label_values({namespace=~\"$namespace\", app=~\"$app\", job=\"kubernetes-pods\"}, pod)",
+          "refId": "PodVar"
+        },
+        "refresh": 2,
+        "sort": 1,
+        "includeAll": true,
+        "allValue": ".+",
+        "multi": false,
+        "current": { "text": "All", "value": ".+", "selected": true }
       }
     ]
   },
@@ -83,11 +102,11 @@
       "type": "stat",
       "title": "Total Logs",
       "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
-      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 1 },
+      "gridPos": { "h": 12, "w": 8, "x": 0, "y": 1 },
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(count_over_time({namespace=~\"$namespace\", app=~\"$app\"}[$__interval]))",
+          "expr": "sum(count_over_time({namespace=~\"$namespace\", app=~\"$app\", pod=~\"$pod\"}[$__interval]))",
           "queryType": "range"
         }
       ],
@@ -114,37 +133,74 @@
     },
     {
       "id": 2,
-      "type": "stat",
-      "title": "ERROR / CRITICAL Logs",
+      "type": "table",
+      "title": "ERROR / CRITICAL по типу",
+      "description": "Счётчики за выбранный интервал дашборда. Тип берётся из JSON-полей err_type · error_type · error_code · error_kind; если полей нет — «unclassified».",
       "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
-      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 1 },
+      "gridPos": { "h": 12, "w": 8, "x": 8, "y": 1 },
+      "pluginVersion": "12.0.0",
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(count_over_time({namespace=~\"$namespace\", app=~\"$app\"} |~ \"(?i)error|critical\" [$__interval]))",
-          "queryType": "range"
+          "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
+          "editorMode": "code",
+          "expr": "topk(50, sum by (error_kind, dummy) (count_over_time({namespace=~\"$namespace\", app=~\"$app\", pod=~\"$pod\"} |~ `(?i)error|critical|fail|exception` | json | drop __error__ | label_format error_kind=`{{if .err_type}}{{.err_type}}{{else if .error_type}}{{.error_type}}{{else if .error_code}}{{.error_code}}{{else if .error_kind}}{{.error_kind}}{{else}}unclassified{{end}}` | label_format dummy=`x` [$__range])))",
+          "legendFormat": "{{error_kind}}",
+          "queryType": "instant",
+          "instant": true,
+          "maxLines": 0,
+          "step": ""
+        }
+      ],
+      "transformations": [
+        {
+          "id": "labelsToFields",
+          "options": { "mode": "columns" }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true, "Metric": true, "dummy": true },
+            "renameByName": { "error_kind": "Тип ошибки", "Value": "Кол-во" },
+            "indexByName": {}
+          }
         }
       ],
       "options": {
-        "reduceOptions": { "calcs": ["lastNotNull"], "values": false, "fields": "" },
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "orientation": "auto",
-        "textMode": "value"
+        "showHeader": true,
+        "cellHeight": "sm",
+        "enablePagination": false,
+        "footer": { "enablePagination": false, "show": false, "countRows": false, "reducer": ["sum"], "fields": "" },
+        "sortBy": [{ "desc": true, "displayName": "Кол-во" }]
       },
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              { "color": "green", "value": null },
-              { "color": "red", "value": 1 }
-            ]
-          }
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "filterable": true,
+            "footer": {},
+            "inspect": false,
+            "minWidth": 80,
+            "wrapHeaderText": true,
+            "wrapText": false
+          },
+          "decimals": 0,
+          "links": [
+            {
+              "title": "Детали в лог-панели",
+              "url": "/d/${__dashboard.uid}?orgId=${__org.id}&from=${__from}&to=${__to}&timezone=${__timezone}&var-namespace=${namespace:queryparam}&var-app=${app:queryparam}&var-pod=${pod:queryparam}&viewPanel=6",
+              "targetBlank": false
+            }
+          ]
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Тип ошибки" },
+            "properties": [{ "id": "links", "value": [] }, { "id": "custom.width", "value": 200 }]
+          }
+        ]
       }
     },
     {
@@ -152,11 +208,11 @@
       "type": "gauge",
       "title": "Success Logs (%)",
       "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
-      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 1 },
+      "gridPos": { "h": 12, "w": 8, "x": 16, "y": 1 },
       "targets": [
         {
           "refId": "A",
-          "expr": "100 * (sum(count_over_time({namespace=~\"$namespace\", app=~\"$app\"}[$__interval])) - sum(count_over_time({namespace=~\"$namespace\", app=~\"$app\"} |~ \"(?i)error|critical\" [$__interval]))) / (sum(count_over_time({namespace=~\"$namespace\", app=~\"$app\"}[$__interval])) + 1)",
+          "expr": "100 * (sum(count_over_time({namespace=~\"$namespace\", app=~\"$app\", pod=~\"$pod\"}[$__interval])) - sum(count_over_time({namespace=~\"$namespace\", app=~\"$app\", pod=~\"$pod\"} |~ \"(?i)error|critical\" [$__interval]))) / (sum(count_over_time({namespace=~\"$namespace\", app=~\"$app\", pod=~\"$pod\"}[$__interval])) + 1)",
           "queryType": "range"
         }
       ],
@@ -186,86 +242,160 @@
       "type": "row",
       "title": "Log Rate & Volatility",
       "id": 101,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 7 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 13 },
       "collapsed": false,
       "panels": []
-    },
-    {
-      "id": 4,
-      "type": "timeseries",
-      "title": "Log Rate by Container",
-      "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
-      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 8 },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum by (container) (count_over_time({namespace=~\"$namespace\", app=~\"$app\"}[$__interval]))",
-          "queryType": "range",
-          "legendFormat": "{{container}}"
-        }
-      ],
-      "options": {
-        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true },
-        "tooltip": { "mode": "multi", "sort": "desc" }
-      },
-      "fieldConfig": {
-        "defaults": { "unit": "short" },
-        "overrides": []
-      }
     },
     {
       "type": "row",
       "title": "Error Investigation",
       "id": 102,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 17 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
       "collapsed": false,
       "panels": []
     },
     {
-      "id": 5,
-      "type": "barchart",
-      "title": "Error Logs by App",
+      "id": 6,
+      "type": "table",
+      "title": "ERROR / CRITICAL — детали",
+      "description": "Контекст инцидента: «Сервис» = поле/лейбл app, «Под»/«Конт» — размещение в Kubernetes, далее детали ошибки и Raw log.",
       "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
-      "gridPos": { "h": 8, "w": 10, "x": 0, "y": 18 },
+      "gridPos": { "h": 16, "w": 24, "x": 0, "y": 23 },
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (app) (count_over_time({namespace=~\"$namespace\", app=~\"$app\"} |~ \"(?i)error|fail|exception|critical\" [$__interval]))",
-          "queryType": "range",
-          "legendFormat": "{{app}}"
+          "expr": "{namespace=~\"$namespace\", app=~\"$app\", pod=~\"$pod\"} |~ `(?i)error|critical|fail|exception`",
+          "queryType": "range"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "extractFields",
+          "options": { "source": "Line", "format": "json", "keepTime": true }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "id": true,
+              "line": true,
+              "filename": true,
+              "job": true
+            },
+            "renameByName": {
+              "Time": "Время",
+              "app": "Сервис",
+              "namespace": "Namespace",
+              "pod": "Под",
+              "container": "Конт",
+              "stream": "Stream",
+              "level": "Уровень",
+              "detected_level": "Уровень",
+              "err_type": "Тип ошибки",
+              "error_type": "Тип ошибки",
+              "error_code": "Код ошибки",
+              "status": "HTTP статус",
+              "status_code": "HTTP статус",
+              "http_status": "HTTP статус",
+              "method": "Метод",
+              "path": "Path",
+              "url": "URL",
+              "request_id": "Request ID",
+              "requestId": "Request ID",
+              "trace_id": "Trace ID",
+              "traceId": "Trace ID",
+              "message": "Сообщение",
+              "msg": "Сообщение",
+              "Line": "Raw log"
+            },
+            "indexByName": {
+              "Время": 0,
+              "Сервис": 1,
+              "Namespace": 2,
+              "Под": 3,
+              "Конт": 4,
+              "Уровень": 5,
+              "Тип ошибки": 6,
+              "Код ошибки": 7,
+              "HTTP статус": 8,
+              "Метод": 9,
+              "Path": 10,
+              "Request ID": 11,
+              "Trace ID": 12,
+              "Сообщение": 13,
+              "Raw log": 14
+            }
+          }
         }
       ],
       "options": {
-        "orientation": "horizontal",
-        "showValue": "auto",
-        "legend": { "displayMode": "hidden", "showLegend": false }
+        "showHeader": true,
+        "cellHeight": "sm",
+        "enablePagination": true,
+        "footer": {
+          "show": false,
+          "countRows": false,
+          "fields": ""
+        },
+        "sortBy": [{ "desc": true, "displayName": "Время" }]
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "filterable": true,
+            "minWidth": 120,
+            "wrapHeaderText": true,
+            "wrapText": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Сообщение" },
+            "properties": [
+              { "id": "custom.width", "value": 520 },
+              { "id": "custom.wrapText", "value": true }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Raw log" },
+            "properties": [
+              { "id": "custom.width", "value": 760 },
+              { "id": "custom.wrapText", "value": true }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Под" },
+            "properties": [
+              { "id": "custom.width", "value": 220 }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "ERROR / CRITICAL — volume",
+      "description": "График количества error/critical по времени (как в Explore), для быстрого выбора интервала и понимания всплесков.",
+      "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 15 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({namespace=~\"$namespace\", app=~\"$app\", pod=~\"$pod\"} |~ `(?i)error|critical|fail|exception` [$__interval]))",
+          "queryType": "range",
+          "legendFormat": "errors"
+        }
+      ],
+      "options": {
+        "legend": { "displayMode": "hidden", "showLegend": false },
+        "tooltip": { "mode": "multi", "sort": "desc" }
       },
       "fieldConfig": {
         "defaults": { "unit": "short" },
         "overrides": []
-      }
-    },
-    {
-      "id": 6,
-      "type": "logs",
-      "title": "Live Error Stream",
-      "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
-      "gridPos": { "h": 8, "w": 14, "x": 10, "y": 18 },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "{namespace=~\"$namespace\", app=~\"$app\"} |~ \"(?i)error|fail|exception\"",
-          "queryType": "range"
-        }
-      ],
-      "options": {
-        "showLabels": true,
-        "showTime": true,
-        "sortOrder": "Descending",
-        "wrapLogMessage": true,
-        "prettifyLogMessage": true,
-        "enableLogDetails": true,
-        "dedupStrategy": "none"
       }
     }
   ]

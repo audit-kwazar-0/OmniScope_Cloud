@@ -58,6 +58,8 @@ param grafanaAdminPrincipalType string = 'User'
 
 // Built-in: Grafana Admin (configure datasources/API access for automation and admins)
 var grafanaAdminRoleId = '22926164-76b3-42b3-bc55-97df8dab3e41'
+// Grafana MSI → read Azure Monitor metrics / LA queries in Grafana (Azure Monitor datasource)
+var monitoringReaderRoleId = '43d0d8ad-25c7-4714-9337-8ba259a9fe05'
 
 resource law 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
   name: lawName
@@ -125,6 +127,9 @@ resource managedGrafana 'Microsoft.Dashboard/grafana@2023-09-01' = if (deployMan
   name: grafanaName
   location: location
   tags: tags
+  identity: {
+    type: 'SystemAssigned'
+  }
   sku: {
     name: 'Standard'
   }
@@ -140,6 +145,16 @@ resource managedGrafana 'Microsoft.Dashboard/grafana@2023-09-01' = if (deployMan
         }
       ]
     }
+  }
+}
+
+// Let Managed Grafana MSI query Azure Monitor / Log Analytics from the Grafana "Azure Monitor" datasource
+resource grafanaMonitoringReaderRg 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deployManagedPrometheus) {
+  name: guid(resourceGroup().id, managedGrafana.id, monitoringReaderRoleId)
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', monitoringReaderRoleId)
+    principalId: managedGrafana.identity.principalId
+    principalType: 'ServicePrincipal'
   }
 }
 

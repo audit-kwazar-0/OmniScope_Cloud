@@ -64,7 +64,10 @@ Set in `.env.deploy`:
 - `OBSERVABILITY_LOKI_ONLY=true`
 - `DEPLOY_LOKI=true`
 - `DEPLOY_MANAGED_PROMETHEUS=true` — Bicep deploys **Azure Managed Grafana** (sign-in with **Microsoft Entra ID** / Azure roles, not local `admin`).
-- `DEPLOY_GRAFANA_DASHBOARD=true` — `deploy-project.sh` runs `grafana-sync.sh`: adds/updates **Loki** datasource (public LoadBalancer IP of in-cluster Loki) and imports the Loki NOC dashboard (`GRAFANA_LOKI_DASHBOARD_PATH`); Prometheus JSON dashboards are skipped in this mode.
+- `DEPLOY_GRAFANA_DASHBOARD=true` — `deploy-project.sh` runs `grafana-sync.sh`: adds/updates **Loki** + **Azure Monitor** datasources, imports the Loki NOC dashboard (`GRAFANA_LOKI_DASHBOARD_PATH`), and (by default) **Tier A–F** dashboards from `docs/grafana-tier-*.json` (`GRAFANA_IMPORT_TIER_DASHBOARDS=true`). Prometheus JSON dashboards are skipped when `OBSERVABILITY_LOKI_ONLY=true` unless `GRAFANA_IMPORT_PROMETHEUS_DASHBOARDS_IN_LOKI_MODE=true`.
+- `LOKI_RETENTION_HOURS=168` (example: 7d retention in Loki)
+- `PROMTAIL_DROP_NAMESPACE_REGEX=^(kube-system|gatekeeper-system)$` to drop noisy namespaces
+- `PROMTAIL_DROP_CONTAINER_REGEX=^(ama-logs|cloud-node-manager)$` to drop noisy containers
 
 Then run from repo root: `./scripts/deploy-project.sh`.
 

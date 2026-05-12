@@ -50,6 +50,18 @@ param aksSystemVmSize string = 'Standard_B2s_v2'
 @minValue(1)
 param aksSystemNodeCount int = 2
 
+@description('Enable Azure Policy addon on AKS.')
+param enableAzurePolicyAddon bool = false
+
+@description('Enable Azure Key Vault Secrets Provider addon on AKS.')
+param enableKeyVaultSecretsProvider bool = false
+
+@description('Enable secret rotation for Azure Key Vault Secrets Provider addon.')
+param keyVaultSecretRotationEnabled bool = true
+
+@description('Rotation poll interval for Azure Key Vault Secrets Provider.')
+param keyVaultRotationPollInterval string = '2m'
+
 @description('CPU workers for polinux/stress in loadtest deployment.')
 @minValue(1)
 param stressCpuWorkers int = 4
@@ -130,6 +142,10 @@ module aks 'modules/aks.bicep' = {
     systemVmSize: aksSystemVmSize
     systemNodeCount: aksSystemNodeCount
     loadTestDeployTag: loadTestDeployTag
+    enableAzurePolicyAddon: enableAzurePolicyAddon
+    enableKeyVaultSecretsProvider: enableKeyVaultSecretsProvider
+    keyVaultSecretRotationEnabled: keyVaultSecretRotationEnabled
+    keyVaultRotationPollInterval: keyVaultRotationPollInterval
   }
 }
 

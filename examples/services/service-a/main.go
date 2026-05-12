@@ -25,6 +25,7 @@ import (
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	oteltrace "go.opentelemetry.io/otel/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 )
 
@@ -139,6 +140,17 @@ func main() {
 	r := gin.New()
 	r.Use(gin.Recovery())
 	r.Use(otelgin.Middleware(serviceName))
+	r.Use(func(c *gin.Context) {
+		start := time.Now()
+		c.Next()
+		sc := oteltrace.SpanContextFromContext(c.Request.Context())
+		traceID := ""
+		if sc.IsValid() {
+			traceID = sc.TraceID().String()
+		}
+		log.Printf("{\"level\":\"info\",\"service\":\"%s\",\"method\":\"%s\",\"path\":\"%s\",\"status\":%d,\"latency_ms\":%d,\"trace_id\":\"%s\"}",
+			serviceName, c.Request.Method, c.Request.URL.Path, c.Writer.Status(), time.Since(start).Milliseconds(), traceID)
+	})
 
 	client := &http.Client{
 		Transport: otelhttp.NewTransport(http.DefaultTransport),

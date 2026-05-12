@@ -54,15 +54,43 @@ ALERT_WEBHOOK_URL="${ALERT_WEBHOOK_URL:-}"
 KEYVAULT_NAME="${KEYVAULT_NAME:-}"
 SMTP_PASSWORD_SECRET_NAME="${SMTP_PASSWORD_SECRET_NAME:-smtp-password}"
 DEPLOY_LOKI="${DEPLOY_LOKI:-true}"
+DEPLOY_TEMPO="${DEPLOY_TEMPO:-false}"
+DEPLOY_PYROSCOPE="${DEPLOY_PYROSCOPE:-false}"
+ENABLE_ISTIO_MESH="${ENABLE_ISTIO_MESH:-false}"
+ENABLE_AKS_AZURE_POLICY="${ENABLE_AKS_AZURE_POLICY:-true}"
+ENABLE_AKS_KEYVAULT_PROVIDER="${ENABLE_AKS_KEYVAULT_PROVIDER:-true}"
+AKS_KEYVAULT_SECRET_ROTATION_ENABLED="${AKS_KEYVAULT_SECRET_ROTATION_ENABLED:-true}"
+AKS_KEYVAULT_SECRET_ROTATION_INTERVAL="${AKS_KEYVAULT_SECRET_ROTATION_INTERVAL:-2m}"
+ENABLE_KEYVAULT_SECRETS_SYNC="${ENABLE_KEYVAULT_SECRETS_SYNC:-false}"
+KEYVAULT_SYNC_SECRET_NAME="${KEYVAULT_SYNC_SECRET_NAME:-smtp-password}"
+SIGN_IMAGES="${SIGN_IMAGES:-false}"
+VERIFY_SIGNED_IMAGES="${VERIFY_SIGNED_IMAGES:-false}"
 OBSERVABILITY_LOKI_ONLY="${OBSERVABILITY_LOKI_ONLY:-false}"
+GRAFANA_IMPORT_PROMETHEUS_DASHBOARDS_IN_LOKI_MODE="${GRAFANA_IMPORT_PROMETHEUS_DASHBOARDS_IN_LOKI_MODE:-false}"
+GRAFANA_ENSURE_AZURE_MONITOR_DS="${GRAFANA_ENSURE_AZURE_MONITOR_DS:-true}"
+GRAFANA_AZURE_SUBSCRIPTION_ID="${GRAFANA_AZURE_SUBSCRIPTION_ID:-}"
+GRAFANA_AZURE_MONITOR_DS_NAME="${GRAFANA_AZURE_MONITOR_DS_NAME:-Azure Monitor}"
+GRAFANA_AZURE_MONITOR_RECREATE="${GRAFANA_AZURE_MONITOR_RECREATE:-false}"
+GRAFANA_AZURE_MONITOR_AUTH_TYPE="${GRAFANA_AZURE_MONITOR_AUTH_TYPE:-currentuser}"
+GRAFANA_AZURE_TENANT_ID="${GRAFANA_AZURE_TENANT_ID:-}"
+GRAFANA_IMPORT_TIER_DASHBOARDS="${GRAFANA_IMPORT_TIER_DASHBOARDS:-true}"
+GRAFANA_LOG_ANALYTICS_WORKSPACE_NAME="${GRAFANA_LOG_ANALYTICS_WORKSPACE_NAME:-omniscope-aks-test-law}"
+GRAFANA_AKS_NAME="${GRAFANA_AKS_NAME:-}"
+GRAFANA_TIER_DASHBOARD_PATHS="${GRAFANA_TIER_DASHBOARD_PATHS:-}"
 LOKI_AZURE_STORAGE_ACCOUNT="${LOKI_AZURE_STORAGE_ACCOUNT:-}"
 LOKI_AZURE_STORAGE_CONTAINER="${LOKI_AZURE_STORAGE_CONTAINER:-loki-data}"
 LOKI_AZURE_STORAGE_RESOURCE_GROUP="${LOKI_AZURE_STORAGE_RESOURCE_GROUP:-}"
+LOKI_RETENTION_HOURS="${LOKI_RETENTION_HOURS:-168}"
+PROMTAIL_DROP_NAMESPACE_REGEX="${PROMTAIL_DROP_NAMESPACE_REGEX:-^$}"
+PROMTAIL_DROP_CONTAINER_REGEX="${PROMTAIL_DROP_CONTAINER_REGEX:-^$}"
 GRAFANA_NAME_OVERRIDE="${GRAFANA_NAME_OVERRIDE:-}"
 GRAFANA_DASHBOARD_PATH="${GRAFANA_DASHBOARD_PATH:-$ROOT_DIR/docs/grafana-dashboard.json}"
 GRAFANA_ALERTING_DASHBOARD_PATH="${GRAFANA_ALERTING_DASHBOARD_PATH:-$ROOT_DIR/docs/grafana-alerting-dashboard.json}"
 GRAFANA_PLATFORM_DASHBOARD_PATH="${GRAFANA_PLATFORM_DASHBOARD_PATH:-$ROOT_DIR/docs/grafana-platform-health-dashboard.json}"
 GRAFANA_LOKI_DASHBOARD_PATH="${GRAFANA_LOKI_DASHBOARD_PATH:-$ROOT_DIR/docs/grafana-dashboard0.json}"
+if [[ "${GRAFANA_LOKI_LEGACY_DASHBOARD_PATH-unset}" == "unset" ]]; then
+  GRAFANA_LOKI_LEGACY_DASHBOARD_PATH="$ROOT_DIR/docs/grafana-dashboard0-legacy.json"
+fi
 if [[ "$GRAFANA_DASHBOARD_PATH" != /* ]]; then
   GRAFANA_DASHBOARD_PATH="$ROOT_DIR/$GRAFANA_DASHBOARD_PATH"
 fi
@@ -74,6 +102,9 @@ if [[ "$GRAFANA_PLATFORM_DASHBOARD_PATH" != /* ]]; then
 fi
 if [[ "$GRAFANA_LOKI_DASHBOARD_PATH" != /* ]]; then
   GRAFANA_LOKI_DASHBOARD_PATH="$ROOT_DIR/$GRAFANA_LOKI_DASHBOARD_PATH"
+fi
+if [[ -n "$GRAFANA_LOKI_LEGACY_DASHBOARD_PATH" && "$GRAFANA_LOKI_LEGACY_DASHBOARD_PATH" != /* ]]; then
+  GRAFANA_LOKI_LEGACY_DASHBOARD_PATH="$ROOT_DIR/$GRAFANA_LOKI_LEGACY_DASHBOARD_PATH"
 fi
 
 WANT_SMTP=false
@@ -104,6 +135,10 @@ if [[ "$OBSERVABILITY_LOKI_ONLY" == "true" && "$DEPLOY_LOKI" != "true" ]]; then
 fi
 if [[ "$OBSERVABILITY_LOKI_ONLY" == "true" && "$DEPLOY_MANAGED_PROMETHEUS" != "true" ]]; then
   echo "OBSERVABILITY_LOKI_ONLY=true is wired for Azure Managed Grafana: set DEPLOY_MANAGED_PROMETHEUS=true in .env (Bicep creates Managed Grafana + AMW)." >&2
+  exit 1
+fi
+if [[ "$OBSERVABILITY_LOKI_ONLY" == "true" && ( "$DEPLOY_TEMPO" == "true" || "$DEPLOY_PYROSCOPE" == "true" ) ]]; then
+  echo "OBSERVABILITY_LOKI_ONLY=true is incompatible with DEPLOY_TEMPO/DEPLOY_PYROSCOPE." >&2
   exit 1
 fi
 
@@ -141,6 +176,10 @@ jq \
   --argjson deployProm "$DEPLOY_MANAGED_PROMETHEUS" \
   --argjson deployLogExport "$DEPLOY_LOG_EXPORT" \
   --argjson deployAksDiagnostics "$DEPLOY_AKS_DIAGNOSTICS" \
+  --argjson enableAzurePolicyAddon "$ENABLE_AKS_AZURE_POLICY" \
+  --argjson enableKvProvider "$ENABLE_AKS_KEYVAULT_PROVIDER" \
+  --argjson kvRotationEnabled "$AKS_KEYVAULT_SECRET_ROTATION_ENABLED" \
+  --arg kvRotationInterval "$AKS_KEYVAULT_SECRET_ROTATION_INTERVAL" \
   --argjson nodeCount "$AKS_SYSTEM_NODE_COUNT" \
   --argjson stressWorkers "$STRESS_CPU_WORKERS" \
   '.parameters.prefix.value = $prefix
@@ -151,6 +190,10 @@ jq \
    | .parameters.deployManagedPrometheus.value = $deployProm
    | .parameters.deployLogExport.value = $deployLogExport
    | .parameters.deployAksDiagnostics.value = $deployAksDiagnostics
+   | .parameters.enableAzurePolicyAddon.value = $enableAzurePolicyAddon
+   | .parameters.enableKeyVaultSecretsProvider.value = $enableKvProvider
+   | .parameters.keyVaultSecretRotationEnabled.value = $kvRotationEnabled
+   | .parameters.keyVaultRotationPollInterval.value = $kvRotationInterval
    | .parameters.aksSystemVmSize.value = $vmSize
    | .parameters.aksSystemNodeCount.value = $nodeCount
    | .parameters.stressCpuWorkers.value = $stressWorkers
@@ -195,6 +238,13 @@ fi
 echo "[5/8] Connect kubectl to AKS"
 az aks get-credentials --resource-group "$RG_NAME" --name "$AKS_NAME" --overwrite-existing >/dev/null
 kubectl get nodes
+if [[ "$ENABLE_ISTIO_MESH" == "true" ]]; then
+  echo "Enabling Istio addon on AKS (az aks mesh enable)..."
+  if ! az aks mesh enable --resource-group "$RG_NAME" --name "$AKS_NAME" >/dev/null 2>&1; then
+    echo "Istio mesh is already enabled or cannot be enabled automatically; continuing."
+  fi
+  kubectl get ns aks-istio-system --ignore-not-found >/dev/null && kubectl get pods -n aks-istio-system || true
+fi
 
 if [[ -z "$ACR_LOGIN_SERVER" || "$ACR_LOGIN_SERVER" == "null" ]]; then
   echo "ACR login server output is empty. Set DEPLOY_ACR=true or use public images." >&2
@@ -209,6 +259,16 @@ docker build -t "${ACR_LOGIN_SERVER}/omniscope/service-a:${SERVICE_A_TAG}" "$ROO
 docker push "${ACR_LOGIN_SERVER}/omniscope/service-a:${SERVICE_A_TAG}"
 docker build -t "${ACR_LOGIN_SERVER}/omniscope/service-b:${SERVICE_B_TAG}" "$ROOT_DIR/examples/services/service-b"
 docker push "${ACR_LOGIN_SERVER}/omniscope/service-b:${SERVICE_B_TAG}"
+if [[ "$SIGN_IMAGES" == "true" ]]; then
+  "$ROOT_DIR/scripts/cosign-sign-images.sh" \
+    "${ACR_LOGIN_SERVER}/omniscope/service-a:${SERVICE_A_TAG}" \
+    "${ACR_LOGIN_SERVER}/omniscope/service-b:${SERVICE_B_TAG}"
+fi
+if [[ "$VERIFY_SIGNED_IMAGES" == "true" ]]; then
+  "$ROOT_DIR/scripts/cosign-verify-images.sh" \
+    "${ACR_LOGIN_SERVER}/omniscope/service-a:${SERVICE_A_TAG}" \
+    "${ACR_LOGIN_SERVER}/omniscope/service-b:${SERVICE_B_TAG}"
+fi
 
 echo "[7/8] Deploy workloads to AKS"
 kubectl apply -f "$ROOT_DIR/examples/kubernetes/namespace.yaml"
@@ -217,7 +277,35 @@ if [[ "$OBSERVABILITY_LOKI_ONLY" == "true" ]]; then
   kubectl delete deployment jaeger otel-collector -n omniscope --ignore-not-found
   kubectl delete svc jaeger otel-collector -n omniscope --ignore-not-found
 else
-  kubectl apply -f "$ROOT_DIR/examples/kubernetes/otel/"
+  TRACE_OTLP_ENDPOINT="jaeger:4317"
+  if [[ "$DEPLOY_TEMPO" == "true" ]]; then
+    TRACE_OTLP_ENDPOINT="tempo:4317"
+    kubectl apply -f "$ROOT_DIR/examples/kubernetes/tempo/"
+    kubectl -n omniscope rollout status deploy/tempo --timeout=300s
+    kubectl delete deployment jaeger -n omniscope --ignore-not-found
+    kubectl delete svc jaeger -n omniscope --ignore-not-found
+  else
+    kubectl apply -f "$ROOT_DIR/examples/kubernetes/otel/10-jaeger.yaml"
+    kubectl -n omniscope rollout status deploy/jaeger --timeout=300s
+  fi
+  sed "s|__TRACE_BACKEND_OTLP_ENDPOINT__|${TRACE_OTLP_ENDPOINT}|g" "$ROOT_DIR/examples/kubernetes/otel/20-otel-configmap.yaml" | kubectl apply -f -
+  kubectl apply -f "$ROOT_DIR/examples/kubernetes/otel/30-otel-collector.yaml"
+  kubectl -n omniscope rollout status deploy/otel-collector --timeout=300s
+fi
+if [[ "$DEPLOY_PYROSCOPE" == "true" ]]; then
+  kubectl apply -f "$ROOT_DIR/examples/kubernetes/pyroscope/"
+  kubectl -n omniscope rollout status deploy/pyroscope --timeout=300s
+fi
+if [[ "$ENABLE_KEYVAULT_SECRETS_SYNC" == "true" ]]; then
+  if [[ -z "$KEYVAULT_NAME" ]]; then
+    echo "ENABLE_KEYVAULT_SECRETS_SYNC=true requires KEYVAULT_NAME." >&2
+    exit 1
+  fi
+  TENANT_ID="$(az account show --query tenantId -o tsv)"
+  sed -e "s|__KEYVAULT_NAME__|${KEYVAULT_NAME}|g" \
+      -e "s|__TENANT_ID__|${TENANT_ID}|g" \
+      -e "s|__KEYVAULT_SECRET_NAME__|${KEYVAULT_SYNC_SECRET_NAME}|g" \
+      "$ROOT_DIR/examples/kubernetes/security/20-secretproviderclass.yaml" | kubectl apply -f -
 fi
 if [[ "$DEPLOY_LOKI" == "true" ]]; then
   kubectl -n omniscope create secret generic loki-storage \
@@ -225,7 +313,12 @@ if [[ "$DEPLOY_LOKI" == "true" ]]; then
     --from-literal=AZURE_STORAGE_ACCOUNT_KEY="$LOKI_STORAGE_KEY" \
     --from-literal=LOKI_AZURE_CONTAINER="$LOKI_AZURE_STORAGE_CONTAINER" \
     --dry-run=client -o yaml | kubectl apply -f -
-  kubectl apply -f "$ROOT_DIR/examples/kubernetes/loki/"
+  sed -e "s|__LOKI_RETENTION_HOURS__|${LOKI_RETENTION_HOURS}|g" \
+      -e "s|__PROMTAIL_DROP_NAMESPACE_REGEX__|${PROMTAIL_DROP_NAMESPACE_REGEX}|g" \
+      -e "s|__PROMTAIL_DROP_CONTAINER_REGEX__|${PROMTAIL_DROP_CONTAINER_REGEX}|g" \
+      "$ROOT_DIR/examples/kubernetes/loki/10-loki-config.yaml" | kubectl apply -f -
+  kubectl apply -f "$ROOT_DIR/examples/kubernetes/loki/20-loki.yaml"
+  kubectl apply -f "$ROOT_DIR/examples/kubernetes/loki/30-promtail.yaml"
   kubectl -n omniscope rollout status deploy/loki --timeout=300s
   kubectl -n omniscope rollout status daemonset/promtail --timeout=300s
 fi
@@ -262,6 +355,7 @@ if [[ "$DEPLOY_ALERTMANAGER" == "true" ]]; then
 fi
 
 if [[ "$DEPLOY_GRAFANA_DASHBOARD" == "true" ]]; then
+  export OMNISCOPE_ROOT_DIR="$ROOT_DIR"
   # shellcheck source=scripts/grafana-sync.sh disable=SC1091
   source "$ROOT_DIR/scripts/grafana-sync.sh"
   omniscope_grafana_dashboard_sync || exit 1

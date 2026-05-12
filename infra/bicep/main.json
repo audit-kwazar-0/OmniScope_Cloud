@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.42.1.51946",
-      "templateHash": "10897797694296340541"
+      "templateHash": "18065800846796612890"
     }
   },
   "parameters": {
@@ -118,6 +118,34 @@
       "minValue": 1,
       "metadata": {
         "description": "AKS system pool node count (test default)."
+      }
+    },
+    "enableAzurePolicyAddon": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Enable Azure Policy addon on AKS."
+      }
+    },
+    "enableKeyVaultSecretsProvider": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Enable Azure Key Vault Secrets Provider addon on AKS."
+      }
+    },
+    "keyVaultSecretRotationEnabled": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Enable secret rotation for Azure Key Vault Secrets Provider addon."
+      }
+    },
+    "keyVaultRotationPollInterval": {
+      "type": "string",
+      "defaultValue": "2m",
+      "metadata": {
+        "description": "Rotation poll interval for Azure Key Vault Secrets Provider."
       }
     },
     "stressCpuWorkers": {
@@ -246,7 +274,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.42.1.51946",
-              "templateHash": "146454316175375832"
+              "templateHash": "14957723842471675935"
             }
           },
           "parameters": {
@@ -371,7 +399,8 @@
             }
           },
           "variables": {
-            "grafanaAdminRoleId": "22926164-76b3-42b3-bc55-97df8dab3e41"
+            "grafanaAdminRoleId": "22926164-76b3-42b3-bc55-97df8dab3e41",
+            "monitoringReaderRoleId": "43d0d8ad-25c7-4714-9337-8ba259a9fe05"
           },
           "resources": [
             {
@@ -440,6 +469,9 @@
               "name": "[parameters('grafanaName')]",
               "location": "[parameters('location')]",
               "tags": "[parameters('tags')]",
+              "identity": {
+                "type": "SystemAssigned"
+              },
               "sku": {
                 "name": "Standard"
               },
@@ -458,6 +490,20 @@
               },
               "dependsOn": [
                 "[resourceId('Microsoft.Monitor/accounts', parameters('azureMonitorWorkspaceName'))]"
+              ]
+            },
+            {
+              "condition": "[parameters('deployManagedPrometheus')]",
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "name": "[guid(resourceGroup().id, resourceId('Microsoft.Dashboard/grafana', parameters('grafanaName')), variables('monitoringReaderRoleId'))]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('monitoringReaderRoleId'))]",
+                "principalId": "[reference(resourceId('Microsoft.Dashboard/grafana', parameters('grafanaName')), '2023-09-01', 'full').identity.principalId]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Dashboard/grafana', parameters('grafanaName'))]"
               ]
             },
             {
@@ -776,6 +822,18 @@
           },
           "loadTestDeployTag": {
             "value": "[parameters('loadTestDeployTag')]"
+          },
+          "enableAzurePolicyAddon": {
+            "value": "[parameters('enableAzurePolicyAddon')]"
+          },
+          "enableKeyVaultSecretsProvider": {
+            "value": "[parameters('enableKeyVaultSecretsProvider')]"
+          },
+          "keyVaultSecretRotationEnabled": {
+            "value": "[parameters('keyVaultSecretRotationEnabled')]"
+          },
+          "keyVaultRotationPollInterval": {
+            "value": "[parameters('keyVaultRotationPollInterval')]"
           }
         },
         "template": {
@@ -785,7 +843,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.42.1.51946",
-              "templateHash": "5829007668458638138"
+              "templateHash": "8785692405373481623"
             }
           },
           "parameters": {
@@ -879,6 +937,34 @@
                 "description": "Log Analytics workspace resource ID for Container Insights addon (optional)."
               }
             },
+            "enableAzurePolicyAddon": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "Enable Azure Policy addon in AKS."
+              }
+            },
+            "enableKeyVaultSecretsProvider": {
+              "type": "bool",
+              "defaultValue": false,
+              "metadata": {
+                "description": "Enable Azure Key Vault Secrets Provider addon in AKS."
+              }
+            },
+            "keyVaultSecretRotationEnabled": {
+              "type": "bool",
+              "defaultValue": true,
+              "metadata": {
+                "description": "Enable secret rotation for Azure Key Vault Secrets Provider."
+              }
+            },
+            "keyVaultRotationPollInterval": {
+              "type": "string",
+              "defaultValue": "2m",
+              "metadata": {
+                "description": "Rotation poll interval for Azure Key Vault Secrets Provider (for example: 2m, 5m)."
+              }
+            },
             "vnetAddressPrefix": {
               "type": "string",
               "defaultValue": "10.224.0.0/16",
@@ -904,7 +990,17 @@
           "variables": {
             "deployerName": "[format('{0}-aks-deployer-uai', parameters('prefix'))]",
             "aksContributorRoleDefinitionId": "ed7f3fbd-7b88-4dd4-9017-9adb7ce333f8",
-            "vnetName": "[format('{0}-vnet', parameters('prefix'))]"
+            "vnetName": "[format('{0}-vnet', parameters('prefix'))]",
+            "addonProfilesBase": {
+              "omsagent": {
+                "enabled": true,
+                "config": {
+                  "logAnalyticsWorkspaceResourceID": "[parameters('logAnalyticsWorkspaceId')]"
+                }
+              }
+            },
+            "addonProfilesAzurePolicy": "[if(parameters('enableAzurePolicyAddon'), createObject('azurepolicy', createObject('enabled', true())), createObject())]",
+            "addonProfilesKeyVault": "[if(parameters('enableKeyVaultSecretsProvider'), createObject('azureKeyvaultSecretsProvider', createObject('enabled', true(), 'config', createObject('enableSecretRotation', string(parameters('keyVaultSecretRotationEnabled')), 'rotationPollInterval', parameters('keyVaultRotationPollInterval')))), createObject())]"
           },
           "resources": [
             {
@@ -976,14 +1072,7 @@
                   "loadBalancerSku": "standard",
                   "outboundType": "loadBalancer"
                 },
-                "addonProfiles": {
-                  "omsagent": {
-                    "enabled": true,
-                    "config": {
-                      "logAnalyticsWorkspaceResourceID": "[parameters('logAnalyticsWorkspaceId')]"
-                    }
-                  }
-                }
+                "addonProfiles": "[union(variables('addonProfilesBase'), variables('addonProfilesAzurePolicy'), variables('addonProfilesKeyVault'))]"
               },
               "dependsOn": [
                 "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))]"

@@ -1,0 +1,124 @@
+{
+  "__inputs": [
+    { "name": "DS_AM", "label": "Azure Monitor", "type": "datasource", "pluginId": "grafana-azure-monitor-datasource", "pluginName": "Azure Monitor" },
+    { "name": "DS_LOKI", "label": "Loki", "type": "datasource", "pluginId": "loki", "pluginName": "Loki" }
+  ],
+  "uid": "omniscope-tier-d",
+  "title": "OmniScope — Tier D — Kubernetes platform",
+  "tags": ["OmniScope", "tier:D", "Azure", "AKS", "k8s"],
+  "schemaVersion": 39,
+  "version": 1,
+  "timezone": "browser",
+  "refresh": "5m",
+  "time": { "from": "now-24h", "to": "now" },
+  "editable": true,
+  "panels": [
+    {
+      "type": "row",
+      "title": "Ноды и расписание",
+      "id": 1,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "id": 2,
+      "type": "table",
+      "title": "Состояние нод (последний снимок)",
+      "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "${DS_AM}" },
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 1 },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "Azure Log Analytics",
+          "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "${DS_AM}" },
+          "azureLogAnalytics": {
+            "query": "KubeNodeInventory\n| where TimeGenerated > ago(30m)\n| where ClusterName =~ \"__AKS_NAME__\"\n| summarize arg_max(TimeGenerated, *) by Computer\n| project Computer, Status, KubeletVersion, KubeProxyVersion, LastTransitionTimeReady\n| take 200",
+            "resources": ["__LOG_ANALYTICS_ARM_ID__"],
+            "resultFormat": "table"
+          }
+        }
+      ],
+      "options": { "showHeader": true, "cellHeight": "sm" },
+      "fieldConfig": { "defaults": { "custom": { "filterable": true } }, "overrides": [] }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Pending pods (оценка)",
+      "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "${DS_AM}" },
+      "gridPos": { "h": 5, "w": 8, "x": 0, "y": 13 },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "Azure Log Analytics",
+          "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "${DS_AM}" },
+          "azureLogAnalytics": {
+            "query": "KubePodInventory\n| where TimeGenerated > ago(15m)\n| where ClusterName =~ \"__AKS_NAME__\"\n| where PodStatus contains \"Pending\"\n| summarize Pending = count()",
+            "resources": ["__LOG_ANALYTICS_ARM_ID__"],
+            "resultFormat": "table"
+          }
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "values": false, "fields": "" }, "colorMode": "value", "textMode": "value" },
+      "fieldConfig": { "defaults": { "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 1 }] } }, "overrides": [] }
+    },
+    {
+      "id": 4,
+      "type": "table",
+      "title": "Последние FailedScheduling",
+      "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "${DS_AM}" },
+      "gridPos": { "h": 9, "w": 16, "x": 8, "y": 13 },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "Azure Log Analytics",
+          "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "${DS_AM}" },
+          "azureLogAnalytics": {
+            "query": "KubeEvents\n| where ClusterName =~ \"__AKS_NAME__\"\n| where Reason == \"FailedScheduling\"\n| where TimeGenerated > ago(24h)\n| project TimeGenerated, Namespace, Name, Message\n| order by TimeGenerated desc\n| take 50",
+            "resources": ["__LOG_ANALYTICS_ARM_ID__"],
+            "resultFormat": "table"
+          }
+        }
+      ],
+      "options": { "showHeader": true },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "filterable": true }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Name" },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Логи pod в NOC (Loki)",
+                    "url": "/d/omniscope-noc-loki-v1?orgId=${__org.id}&from=${__from}&to=${__to}&var-namespace=${__data.fields.Namespace}&var-app=.+&var-pod=${__value.raw}",
+                    "targetBlank": false
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Namespace" },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Логи namespace в NOC (Loki)",
+                    "url": "/d/omniscope-noc-loki-v1?orgId=${__org.id}&from=${__from}&to=${__to}&var-namespace=${__value.raw}&var-app=.+&var-pod=.+",
+                    "targetBlank": false
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

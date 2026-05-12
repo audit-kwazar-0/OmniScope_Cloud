@@ -16,7 +16,7 @@ data:
       batch: {}
     exporters:
       otlp:
-        endpoint: jaeger:4317
+        endpoint: __TRACE_BACKEND_OTLP_ENDPOINT__
         tls:
           insecure: true
       prometheus:

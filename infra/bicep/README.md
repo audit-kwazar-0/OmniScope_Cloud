@@ -85,6 +85,10 @@ az deployment sub create \
 - `deployAks`: deploy AKS + sample load workload (default `true`)
 - `deployAcr`: when `true` and `deployAks` is `true`, create **ACR** and assign **AcrPull** to the cluster kubelet (default `true`)
 - `deployAksDiagnostics`: when `true` and `deployAks` is `true`, enable AKS control-plane diagnostics to LAW (`kube-apiserver`, `kube-audit`, etc.) (default `true`)
+- `enableAzurePolicyAddon`: enable AKS Azure Policy addon (default `false`)
+- `enableKeyVaultSecretsProvider`: enable AKS Key Vault CSI addon (default `false`)
+- `keyVaultSecretRotationEnabled`: enable Key Vault CSI secret rotation (default `true`)
+- `keyVaultRotationPollInterval`: Key Vault CSI rotation poll interval (default `2m`)
 - `deployManagedPrometheus`: deploy Azure Monitor Workspace + Managed Grafana (default `true`)
 - `grafanaAdminObjectId`: optional Entra **object id** (user, group, or SPN) granted **Grafana Admin** on Managed Grafana so `az grafana` and the UI work without manual RBAC. Leave empty to skip (then assign the role manually in Azure Portal).
 - `grafanaAdminPrincipalType`: `User`, `Group`, or `ServicePrincipal` (default `User`) — must match `grafanaAdminObjectId`.
@@ -105,6 +109,8 @@ az deployment sub create \
 
 ### Notes
 
+- **Managed Grafana + Azure Monitor:** Bicep enables **system-assigned identity** on Managed Grafana and assigns **Monitoring Reader** on the deployment **resource group** (for **MSI** auth). `scripts/grafana-sync.sh` provisions the **Azure Monitor** datasource; by default it uses **`azureAuthType: currentuser`** (same as Grafana UI *Current user*, works with Entra sign-in). Set `GRAFANA_AZURE_MONITOR_AUTH_TYPE=msi` in `.env.deploy` when MSI RBAC is applied and you want queries to run as the Grafana managed identity.
+- **Istio control:** service mesh enablement is managed by `scripts/deploy-project.sh` via `az aks mesh enable` (`ENABLE_ISTIO_MESH=true`) to keep deployment idempotent with existing clusters.
 - If Bicep fails with **RoleAssignmentExists** on Managed Grafana, you already have **Grafana Admin** for the same principal at that scope (e.g. created manually with `az role assignment create`). Remove the duplicate assignment on the Grafana resource, then redeploy — or rely on the existing assignment and temporarily omit `grafanaAdminObjectId` from the template (set to empty and remove the `grafanaAdminAssignment` resource) if you maintain RBAC only by hand.
 - The load test is intentionally noisy (CPU stress). Keep it in non-prod subscriptions/resource groups.
 - The template creates a **User Assigned Identity** used only by the post-install `deploymentScript` and grants it **Azure Kubernetes Service Contributor Role** on the AKS cluster resource (needed for admin kubeconfig + `kubectl apply`).
