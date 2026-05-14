@@ -17,5 +17,10 @@ config:
   omniscope:deployAksDiagnostics: "false"
   omniscope:aksSystemVmSize: Standard_B2s_v2
   omniscope:aksSystemNodeCount: "2"
-  omniscope:stressCpuWorkers: "4"
+  omniscope:enableAzurePolicyAddon: "true"
+  omniscope:enableKeyVaultSecretsProvider: "true"
+  omniscope:keyVaultSecretRotationEnabled: "true"
+  omniscope:keyVaultRotationPollInterval: "2m"
+  omniscope:grafanaAdminObjectId: ""
+  omniscope:grafanaAdminPrincipalType: "User"
   omniscope:tags: "{}"

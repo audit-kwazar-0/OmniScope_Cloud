@@ -1,5 +1,5 @@
-# Единая точка ручного запуска: вкладка Actions → этот workflow → Run workflow (обязательно выберите слева).
-# Переменные и секреты: infra/bicep/GITHUB_ACTIONS_VARIABLES.md, Environment **bicep**.
+# Single manual entry: Actions tab → this workflow → Run workflow (pick it in the left list).
+# Variables and secrets: infra/bicep/GITHUB_ACTIONS_VARIABLES.md, Environment **bicep**.
 
 name: Run pipeline — Bicep & Azure
 
@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: Режим
+        description: Mode
         type: choice
         options:
           - bicep_validate
@@ -15,7 +15,7 @@ on:
           - subscription_what_if
         default: bicep_validate
       deploy_aks:
-        description: 'Только для subscription_what_if (иначе игнорируется). deployAks.'
+        description: 'subscription_what_if only (ignored otherwise). deployAks.'
         type: choice
         options:
           - use-variable
@@ -23,7 +23,7 @@ on:
           - 'false'
         default: use-variable
       deploy_acr:
-        description: 'Только для subscription_what_if. deployAcr.'
+        description: 'subscription_what_if only. deployAcr.'
         type: choice
         options:
           - use-variable
@@ -70,7 +70,7 @@ jobs:
           for name in SUB TENANT CLIENT; do
             eval "v=\${$name}"
             if [ -z "${v:-}" ]; then
-              echo "::error::Нет секрета для $name. Environment **bicep** или Repository secrets."
+              echo "::error::Missing secret for $name. Environment **bicep** or Repository secrets."
               exit 1
             fi
           done
@@ -103,8 +103,8 @@ jobs:
           LOC: ${{ vars.BICEP_LOCATION }}
         run: |
           set -e
-          [ -n "${PREFIX:-}" ] || { echo "::error::Задайте Variable BICEP_PREFIX"; exit 1; }
-          [ -n "${LOC:-}" ] || { echo "::error::Задайте Variable BICEP_LOCATION"; exit 1; }
+          [ -n "${PREFIX:-}" ] || { echo "::error::Set Variable BICEP_PREFIX"; exit 1; }
+          [ -n "${LOC:-}" ] || { echo "::error::Set Variable BICEP_LOCATION"; exit 1; }
           echo "BICEP_PREFIX / LOCATION OK."
 
       - name: Azure login (OIDC)
@@ -130,7 +130,7 @@ jobs:
           ALERT="${ALERT_SECRET:-}"
           if [ -z "$ALERT" ]; then ALERT="${ALERT_VAR:-}"; fi
           if [ -z "$ALERT" ]; then
-            echo "::error::Нужна Variable или Secret BICEP_ALERT_EMAIL"
+            echo "::error::Need Variable or Secret BICEP_ALERT_EMAIL"
             exit 1
           fi
           if [ "${INPUT_DEPLOY_AKS}" = "use-variable" ]; then

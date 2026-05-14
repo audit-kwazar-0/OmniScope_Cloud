@@ -1,100 +1,100 @@
-# OmniScope: Vision of the Future Project
+# OmniScope: vision for the future project
 
-## Зачем нужен OmniScope
+## Why OmniScope exists
 
-OmniScope задуман как единая облачная платформа наблюдаемости (observability) для продуктовых и платформенных команд.  
-Главная идея: команда должна видеть состояние системы в реальном времени и быстро переходить от симптома к причине, не переключаясь между десятком разрозненных инструментов.
+OmniScope is intended as a unified cloud observability platform for product and platform teams.  
+The core idea: the team should see system state in real time and move quickly from symptom to root cause without juggling a dozen disconnected tools.
 
-Проект решает три практические задачи:
+The project addresses three practical goals:
 
-1. **Скорость диагностики** — уменьшение MTTR за счет связки метрик, логов и трассировок.
-2. **Предсказуемость релизов** — observability встроена в процесс доставки, а не добавляется постфактум.
-3. **Единый стандарт эксплуатации** — общие шаблоны IaC, дашбордов, алертов и runbook.
+1. **Faster diagnosis** — lower MTTR by correlating metrics, logs, and traces.
+2. **Predictable releases** — observability is part of delivery, not bolted on afterward.
+3. **One operational standard** — shared templates for IaC, dashboards, alerts, and runbooks.
 
-## Философия проекта
+## Project philosophy
 
 ### 1) Observability by default
-Любой новый сервис в кластере должен автоматически попадать в единый контур:
-- метрики,
-- логи,
-- трассировки,
-- алерты.
+Every new service in the cluster should automatically land in one pipeline:
+- metrics,
+- logs,
+- traces,
+- alerts.
 
-### 2) Infrastructure as Product
-Платформа — это продукт для внутренних команд.  
-Значит, у нее есть:
-- версия,
-- roadmap,
+### 2) Infrastructure as product
+The platform is a product for internal teams.  
+That means it has:
+- a version,
+- a roadmap,
 - SLA/SLO,
-- документация и поддерживаемые сценарии.
+- documentation and supported scenarios.
 
-### 3) Everything as Code
-Всё, что можно версионировать, должно жить в репозитории:
-- инфраструктура (Bicep),
-- Kubernetes манифесты,
+### 3) Everything as code
+Anything that can be versioned should live in the repository:
+- infrastructure (Bicep),
+- Kubernetes manifests,
 - dashboard templates,
 - alert rules,
-- runbook и evidence.
+- runbooks and evidence.
 
 ### 4) Correlation first
-Ценность observability появляется только когда сигналы связаны:
-- метрика -> лог -> трейс,
-- алерт -> дашборд -> runbook,
-- инцидент -> воспроизводимый сценарий проверки.
+Observability only pays off when signals are linked:
+- metric → log → trace,
+- alert → dashboard → runbook,
+- incident → reproducible validation scenario.
 
-## Целевое состояние архитектуры
+## Target architecture
 
 ### Platform layer (Azure)
-- AKS как единая runtime-среда.
-- LAW как основной слой логов.
-- Application Insights как APM/tracing backend.
-- Azure Monitor Workspace + Managed Grafana как слой метрик.
-- Event Hub export path для OpenSearch/Elastic сценариев deep-search и long-term forensic.
+- AKS as the single runtime environment.
+- LAW as the primary log layer.
+- Application Insights as APM/tracing backend.
+- Azure Monitor Workspace + Managed Grafana as the metrics layer.
+- Event Hub export path for OpenSearch/Elastic deep-search and long-term forensic scenarios.
 
 ### Workload layer (Kubernetes)
-- Сервисы развертываются в единый namespace/контур с обязательными telemetry-конвенциями.
-- OTel Collector выступает как control plane телеметрии.
-- Gateway API/Ingress используется как единая точка входа.
+- Services deploy into one namespace/ring with mandatory telemetry conventions.
+- OTel Collector acts as the telemetry control plane.
+- Gateway API/Ingress as the single entry point.
 
 ### Operations layer
-- Alert rules на инфраструктуру и прикладные SLI.
-- Action Group (email/webhook) и дальнейшая интеграция с incident workflow.
-- Runbook-ориентированная эксплуатация.
+- Alert rules for infrastructure and application SLIs.
+- Action Group (email/webhook) and integration with incident workflows.
+- Runbook-driven operations.
 
-## Принципы реализации
+## Implementation principles
 
-1. **Incremental delivery**: сначала рабочий MVP, затем hardening.
-2. **No magic defaults**: все критичные параметры документируются.
-3. **Fail with context**: алерт без ссылки на контекст (дашборд/логи/трейс) считается неполным.
-4. **Security baseline**: секреты вне git, least privilege, аудируемые изменения.
-5. **Cost awareness**: контроль cardinality, retention и частоты сигналов.
+1. **Incremental delivery**: working MVP first, then hardening.
+2. **No magic defaults**: all critical parameters are documented.
+3. **Fail with context**: an alert without context (dashboard/logs/trace) is incomplete.
+4. **Security baseline**: secrets outside git, least privilege, auditable changes.
+5. **Cost awareness**: control cardinality, retention, and signal frequency.
 
-## Этапы развития (high-level roadmap)
+## Roadmap (high level)
 
 ### Phase 1 — Foundation
-- Базовый IaC контур (AKS + LAW + AppInsights + Grafana/Prometheus + alerts).
-- Референсный набор сервисов и e2e smoke checks.
+- Baseline IaC (AKS + LAW + App Insights + Grafana/Prometheus + alerts).
+- Reference services and end-to-end smoke checks.
 
 ### Phase 2 — Standardization
-- Telemetry contract для всех сервисов.
-- Template-подход для dashboards/alerts.
+- Telemetry contract for all services.
+- Template approach for dashboards/alerts.
 - CI gates: validate + what-if + trace-based smoke.
 
-### Phase 3 — Production Hardening
-- Политики доступа, приватные endpoint-сценарии, compliance-практики.
-- Incident workflow и postmortem templates.
-- Capacity/cost optimization и SLO governance.
+### Phase 3 — Production hardening
+- Access policies, private endpoint scenarios, compliance practices.
+- Incident workflow and postmortem templates.
+- Capacity/cost optimization and SLO governance.
 
-### Phase 4 — Platform Scale
-- Подключение новых команд как self-service.
-- Multi-environment/multi-cluster operating model.
-- Регулярный quality review observability coverage.
+### Phase 4 — Platform scale
+- Onboarding new teams as self-service.
+- Multi-environment / multi-cluster operating model.
+- Regular quality review of observability coverage.
 
-## Definition of Success
+## Definition of success
 
-OmniScope считается успешным, если:
+OmniScope succeeds when:
 
-- любой сервис подключается к observability-контуру по стандартному шаблону,
-- инцидент можно разобрать end-to-end за минуты, а не часы,
-- инфраструктура и мониторинг воспроизводимы из кода,
-- документация остается актуальной и поддерживает ежедневную работу команд.
+- any service can attach to the observability ring via a standard template,
+- incidents can be triaged end-to-end in minutes, not hours,
+- infrastructure and monitoring are reproducible from code,
+- documentation stays current and supports day-to-day team work.

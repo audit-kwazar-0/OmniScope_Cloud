@@ -14,7 +14,7 @@
   "panels": [
     {
       "type": "row",
-      "title": "AKS — обзор (Log Analytics / Container Insights)",
+      "title": "AKS — overview (Log Analytics / Container Insights)",
       "id": 1,
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
       "collapsed": false,
@@ -23,7 +23,7 @@
     {
       "id": 2,
       "type": "stat",
-      "title": "Ноды (инв.)",
+      "title": "Nodes (inventory)",
       "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "${DS_AM}" },
       "gridPos": { "h": 5, "w": 6, "x": 0, "y": 1 },
       "targets": [
@@ -48,7 +48,7 @@
     {
       "id": 3,
       "type": "stat",
-      "title": "Поды (инв.)",
+      "title": "Pods (inventory)",
       "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "${DS_AM}" },
       "gridPos": { "h": 5, "w": 6, "x": 6, "y": 1 },
       "targets": [
@@ -111,7 +111,7 @@
     {
       "id": 5,
       "type": "stat",
-      "title": "Namespaces (инв.)",
+      "title": "Namespaces (inventory)",
       "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "${DS_AM}" },
       "gridPos": { "h": 5, "w": 6, "x": 18, "y": 1 },
       "targets": [

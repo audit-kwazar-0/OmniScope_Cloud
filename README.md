@@ -53,7 +53,7 @@ Goal: 1-click drilldown from incident symptoms to logs.
 
 Validation:
 
-1. Open `Tier D -> Последние FailedScheduling`.
+1. Open `Tier D -> Latest FailedScheduling`.
 2. Click `Name` or `Namespace`.
 3. Confirm redirect to `omniscope-noc-loki-v1` with prefilled vars and matching time window.
 

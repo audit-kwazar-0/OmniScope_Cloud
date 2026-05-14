@@ -29,8 +29,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Для workflow_dispatch брать BASE_URL/compare из dispatch; для schedule — только Variables.
-      - name: Установить BASE_URL и COMPARE_BASELINE (dispatch vs cron)
+      # workflow_dispatch: BASE_URL/compare from dispatch; schedule: Variables only.
+      - name: Set BASE_URL and COMPARE_BASELINE (dispatch vs cron)
         run: |
           set -euo pipefail
           ALLOW="${ALLOW_REGRESSION_PERCENT:-}"

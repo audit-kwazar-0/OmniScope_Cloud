@@ -1,6 +1,6 @@
 {
   "uid": "omniscope-tier-f",
-  "title": "OmniScope — Tier F — Cost & capacity (облако)",
+  "title": "OmniScope — Tier F — Cost & capacity (cloud)",
   "tags": ["OmniScope", "tier:F", "Azure", "cost"],
   "schemaVersion": 39,
   "version": 1,
@@ -20,21 +20,21 @@
     {
       "id": 2,
       "type": "text",
-      "title": "Биллинг и подписка",
+      "title": "Billing and subscription",
       "gridPos": { "h": 6, "w": 12, "x": 0, "y": 1 },
       "options": {
         "mode": "markdown",
-        "content": "- [Cost Management + billing (Portal)](https://portal.azure.com/#blade/Microsoft_Azure_Billing/SubscriptionsBlade)\n- Рекомендуется: **теги** ресурсов, **бюджеты**, **Advisor** (rightsizing SKU).\n- Детальные метрики стоимости **не входят** в Grafana по умолчанию — используйте **Cost analysis** в портале или **exports** → storage/BI.\n"
+        "content": "- [Cost Management + billing (Portal)](https://portal.azure.com/#blade/Microsoft_Azure_Billing/SubscriptionsBlade)\n- Recommended: **resource tags**, **budgets**, **Advisor** (SKU rightsizing).\n- Detailed cost metrics are **not** in Grafana by default — use **Cost analysis** in the portal or **exports** → storage/BI.\n"
       }
     },
     {
       "id": 3,
       "type": "text",
-      "title": "Ёмкость AKS (навигация)",
+      "title": "AKS capacity (navigation)",
       "gridPos": { "h": 6, "w": 12, "x": 12, "y": 1 },
       "options": {
         "mode": "markdown",
-        "content": "- В портале Azure: Resource groups → **__RESOURCE_GROUP__** → Kubernetes service **__AKS_NAME__** → *Insights / Node pools* для ёмкости.\n- **Tier D** — метрики/таблицы в Grafana. **Здесь** — только ссылки и процесс закупки/optimization.\n"
+        "content": "- In Azure portal: Resource groups → **__RESOURCE_GROUP__** → Kubernetes service **__AKS_NAME__** → *Insights / Node pools* for capacity.\n- **Tier D** — metrics/tables in Grafana. **Here** — links and procurement/optimization process only.\n"
       }
     }
   ]

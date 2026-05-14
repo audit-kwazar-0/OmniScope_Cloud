@@ -12,8 +12,8 @@ cp .env.deploy.example .env.deploy
 
 What this script does:
 1. Azure preflight + provider registration.
-2. Bicep infra deployment (`infra/bicep/deploy.sh deploy`).
-3. Resolves deployment outputs (RG/AKS/ACR).
+2. Infrastructure deployment: **Bicep** (default) or **Pulumi** when `OMNISCOPE_IAC=pulumi` in `.env.deploy` (see §2).
+3. Resolves stack outputs (RG/AKS/ACR).
 4. Builds and pushes `omniscope/service-a` and `omniscope/service-b`.
 5. Applies Kubernetes manifests.
 6. Imports `docs/grafana-dashboard.json` into Managed Grafana (optional, enabled by default).
@@ -24,6 +24,8 @@ Cleanup:
 ```bash
 ./scripts/cleanup-project.sh
 ```
+
+With `OMNISCOPE_IAC=pulumi`, cleanup runs `pulumi destroy` on `PULUMI_STACK` (default `dev`) first, then deletes the resource group if it still exists.
 
 Enable in-cluster Alertmanager (optional):
 - Set `DEPLOY_ALERTMANAGER=true` in `.env.deploy`
@@ -46,7 +48,41 @@ Grafana dashboard auto-import settings:
 az provider register --namespace Microsoft.OperationsManagement --wait
 ```
 
-## 2. Deploy infrastructure (Bicep)
+## 2. Deploy infrastructure
+
+### 2a. Pulumi (recommended parity with `main.bicep`)
+
+From repo root (after `az login` and correct subscription):
+
+```bash
+cd infra/pulumi
+npm ci
+pulumi stack init dev   # once
+pulumi config set omniscope:prefix omniscope-aks-test --stack dev
+pulumi config set omniscope:alertEmail you@example.com --stack dev
+# optional: pulumi config set omniscope:location westeurope --stack dev
+# optional Managed Grafana: set deployManagedPrometheus true and grant Admin to your user:
+# pulumi config set omniscope:deployManagedPrometheus true --stack dev
+# pulumi config set omniscope:grafanaAdminObjectId "<Entra object id>" --stack dev
+pulumi up --stack dev
+```
+
+Outputs:
+
+```bash
+pulumi stack output --json --stack dev
+```
+
+For **full app + cluster** in one command, set in `.env.deploy`:
+
+```bash
+OMNISCOPE_IAC=pulumi
+PULUMI_STACK=dev
+```
+
+then run `./scripts/deploy-project.sh` from the repo root (same steps as the fast path: images, Kubernetes, optional Grafana import, smoke test).
+
+### 2b. Bicep (manual subscription deployment)
 
 From repo root:
 
@@ -150,7 +186,17 @@ kubectl -n omniscope get svc alertmanager
 
 ## 9. Cleanup
 
+Preferred (uses `.env.deploy` for RG name and optional Pulumi destroy):
+
+```bash
+./scripts/cleanup-project.sh
+```
+
+Manual (default prefix `omniscope-aks-test` → RG `omniscope-aks-test-rg`):
+
 ```bash
 az group delete --name omniscope-aks-test-rg --yes --no-wait
 az group show -n omniscope-aks-test-rg --query properties.provisioningState -o tsv
 ```
+
+If you used Pulumi only (no leftover RG): `cd infra/pulumi && pulumi destroy --yes --stack dev`.

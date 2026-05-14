@@ -1,12 +1,12 @@
-# Скелет: переиспользуемая сборка и push в ACR.
-# Вызов: workflow_call из microservice-path-skeleton.yml (или свой workflow с jobs.uses).
+# Skeleton: reusable build and push to ACR.
+# Invoked via workflow_call from microservice-path-skeleton.yml (or your own workflow with jobs.uses).
 #
-# В GitHub НЕТ кнопки «Run workflow» у файлов только с on: workflow_call —
-# откройте вызывающий workflow (например Microservice — service-a path skeleton) и запускайте его.
+# GitHub has NO "Run workflow" for files with only on: workflow_call —
+# open the calling workflow (e.g. Microservice — service-a path skeleton) and run that.
 #
-# Перед использованием задайте federated credential + secrets в Environment (или repo),
-# как в Infra — Bicep what-if (AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID).
-# Дополнительно: ACR_LOGIN_SERVER (например myregistry.azurecr.io), при необходимости ACR_NAME для `az acr build`.
+# Before use: configure federated credential + secrets in Environment (or repo),
+# as in Infra — Bicep what-if (AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID).
+# Also: ACR_LOGIN_SERVER (e.g. myregistry.azurecr.io), optionally ACR_NAME for `az acr build`.
 
 name: 'Reusable — build & push (skeleton)'
 
@@ -14,15 +14,15 @@ on:
   workflow_call:
     inputs:
       image_repository:
-        description: 'Имя репозитория в ACR без сервера (например omniscope/service-a)'
+        description: 'ACR repository name without registry host (e.g. omniscope/service-a)'
         required: true
         type: string
       docker_context:
-        description: 'Каталог Dockerfile (от корня репо)'
+        description: 'Dockerfile directory (from repo root)'
         required: true
         type: string
       image_tag:
-        description: 'Тег образа (например git SHA или run id)'
+        description: 'Image tag (e.g. git SHA or run id)'
         required: true
         type: string
 
@@ -47,13 +47,13 @@ jobs:
       - name: ACR login
         run: az acr login --name "${{ vars.ACR_NAME }}"
 
-      # Вариант A: build на раннере
-      - name: Docker build & push (скелет — раскомментировать при наличии Dockerfile)
+      # Option A: build on runner
+      - name: Docker build & push (skeleton — uncomment when Dockerfile exists)
         run: |
-          echo "::notice::Скелет: подставьте ACR_LOGIN_SERVER / путь к Dockerfile"
+          echo "::notice::Skeleton: set ACR_LOGIN_SERVER / path to Dockerfile"
           echo "Would build: ${{ inputs.docker_context }}"
           echo "Image: ${{ vars.ACR_LOGIN_SERVER }}/${{ inputs.image_repository }}:${{ inputs.image_tag }}"
           # docker build -t "$REG/${{ inputs.image_repository }}:${{ inputs.image_tag }}" "${{ inputs.docker_context }}"
           # docker push "$REG/${{ inputs.image_repository }}:${{ inputs.image_tag }}"
 
-      # Вариант B (предпочтительно в Azure): az acr build --registry ... --image repo:tag .
+      # Option B (preferred in Azure): az acr build --registry ... --image repo:tag .

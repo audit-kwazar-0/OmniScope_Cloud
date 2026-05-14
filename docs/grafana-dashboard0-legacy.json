@@ -199,8 +199,8 @@
     {
       "id": 2,
       "type": "table",
-      "title": "ERROR / CRITICAL по типу",
-      "description": "Счётчики за выбранный интервал дашборда. Тип берётся из JSON-полей err_type · error_type · error_code · error_kind; если полей нет — «unclassified».",
+      "title": "ERROR / CRITICAL by type",
+      "description": "Counts for the selected dashboard interval. Type comes from JSON fields err_type · error_type · error_code · error_kind; if none are present — \"unclassified\".",
       "datasource": {
         "type": "loki",
         "uid": "${DS_LOKI}"
@@ -244,8 +244,8 @@
               "dummy": true
             },
             "renameByName": {
-              "error_kind": "Тип ошибки",
-              "Value": "Кол-во"
+              "error_kind": "Error type",
+              "Value": "Count"
             },
             "indexByName": {}
           }
@@ -267,7 +267,7 @@
         "sortBy": [
           {
             "desc": true,
-            "displayName": "Кол-во"
+            "displayName": "Count"
           }
         ]
       },
@@ -289,7 +289,7 @@
           "decimals": 0,
           "links": [
             {
-              "title": "Детали в лог-панели",
+              "title": "Details in log panel",
               "url": "/d/${__dashboard.uid}?orgId=${__org.id}&from=${__from}&to=${__to}&timezone=${__timezone}&var-namespace=${namespace:queryparam}&var-app=${app:queryparam}&viewPanel=6",
               "targetBlank": false
             }
@@ -299,7 +299,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Тип ошибки"
+              "options": "Error type"
             },
             "properties": [
               {
@@ -479,8 +479,8 @@
     {
       "id": 6,
       "type": "logs",
-      "title": "ERROR / CRITICAL — детали",
-      "description": "Сюда ведёт data link с панели «ERROR / CRITICAL Logs» (клик по числу). Запрос совпадает со счётчиком (+ critical).",
+      "title": "ERROR / CRITICAL — details",
+      "description": "Data link from the \"ERROR / CRITICAL Logs\" panel (click the number). Query matches the counter (+ critical).",
       "datasource": {
         "type": "loki",
         "uid": "${DS_LOKI}"

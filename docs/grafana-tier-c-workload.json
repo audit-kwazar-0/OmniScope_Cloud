@@ -3,7 +3,7 @@
     { "name": "DS_LOKI", "label": "Loki", "type": "datasource", "pluginId": "loki", "pluginName": "Loki" }
   ],
   "uid": "omniscope-tier-c",
-  "title": "OmniScope — Tier C — Workload (приложения)",
+  "title": "OmniScope — Tier C — Workload (applications)",
   "tags": ["OmniScope", "tier:C", "Loki", "apps"],
   "schemaVersion": 39,
   "version": 1,
@@ -46,7 +46,7 @@
   "panels": [
     {
       "type": "row",
-      "title": "Сигналы по логам (proxy для RPS/latency без APM)",
+      "title": "Log-derived signals (proxy for RPS/latency without APM)",
       "id": 1,
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
       "collapsed": false,
@@ -55,7 +55,7 @@
     {
       "id": 2,
       "type": "timeseries",
-      "title": "Log volume (все строки)",
+      "title": "Log volume (all lines)",
       "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 1 },
       "targets": [
@@ -72,7 +72,7 @@
     {
       "id": 3,
       "type": "timeseries",
-      "title": "Совпадения error|fail|exception (volume)",
+      "title": "Matches error|fail|exception (volume)",
       "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 1 },
       "targets": [
@@ -89,11 +89,11 @@
     {
       "id": 4,
       "type": "text",
-      "title": "Примечание",
+      "title": "Note",
       "gridPos": { "h": 4, "w": 24, "x": 0, "y": 9 },
       "options": {
         "mode": "markdown",
-        "content": "Для настоящих **RPS / latency / error rate** нужны метрики приложения (Prometheus/App Insights). Здесь — **прокси-сигналы по логам**.\n"
+        "content": "Real **RPS / latency / error rate** need application metrics (Prometheus/App Insights). Here you only have **log-derived proxy signals**.\n"
       }
     }
   ]

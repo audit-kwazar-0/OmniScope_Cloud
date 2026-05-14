@@ -21,7 +21,7 @@ For the relationship **ACR ↔ AKS**, **build/push/deploy**, and **Azure Repos**
 
 ## Prerequisites
 
-- An AKS cluster (this repo’s Bicep can create **AKS + ACR + AcrPull** — see `infra/bicep/README.md`; для быстрого теста — `infra/bicep/parameters.test-aks.json` + `./deploy.sh deploy` из каталога `infra/bicep/`).
+- An AKS cluster (this repo’s Bicep can create **AKS + ACR + AcrPull** — see `infra/bicep/README.md`; for a quick test use `infra/bicep/parameters.test-aks.json` + `./deploy.sh deploy` from `infra/bicep/`).
 - `kubectl` and `az` CLI; kubeconfig from `az aks get-credentials`.
 - Images **pushed** to your ACR: repositories `omniscope/service-a` and `omniscope/service-b` (tags must match manifests, e.g. `latest` or your CI tag).
 

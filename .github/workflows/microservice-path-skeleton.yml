@@ -1,5 +1,5 @@
-# Скелет отдельного pipeline на микросервис: триггер только по путям + вызов reusable build/push.
-# Скопируйте файл под имя сервиса и поправьте paths / image_repository.
+# Skeleton per-microservice pipeline: path triggers + reusable build/push.
+# Copy this file per service and adjust paths / image_repository.
 
 name: 'Microservice — service-a (path skeleton)'
 
@@ -27,7 +27,7 @@ jobs:
       image_tag: ${{ github.sha }}
     secrets: inherit
 
-  # deploy отдельным job при merge в main (или в другом workflow с needs: build-push)
+  # deploy in a separate job on merge to main (or another workflow with needs: build-push)
   # deploy:
   #   needs: [build-push]
-  #   uses: ./.github/workflows/... # или steps с kubectl
+  #   uses: ./.github/workflows/... # or steps with kubectl

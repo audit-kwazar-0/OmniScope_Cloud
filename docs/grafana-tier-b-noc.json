@@ -15,7 +15,7 @@
   "panels": [
     {
       "type": "row",
-      "title": "Платформа (Container Insights)",
+      "title": "Platform (Container Insights)",
       "id": 1,
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
       "collapsed": false,
@@ -24,7 +24,7 @@
     {
       "id": 2,
       "type": "table",
-      "title": "Топ причин KubeEvents (24h)",
+      "title": "Top KubeEvents reasons (24h)",
       "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "${DS_AM}" },
       "gridPos": { "h": 10, "w": 14, "x": 0, "y": 1 },
       "targets": [
@@ -107,7 +107,7 @@
     },
     {
       "type": "row",
-      "title": "Переходы",
+      "title": "Navigation",
       "id": 10,
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 12 },
       "collapsed": false,
@@ -116,11 +116,11 @@
     {
       "id": 11,
       "type": "text",
-      "title": "Приложения / логи",
+      "title": "Apps / logs",
       "gridPos": { "h": 4, "w": 24, "x": 0, "y": 13 },
       "options": {
         "mode": "markdown",
-        "content": "- **Loki NOC:** [Открыть дашборд ошибок](/d/omniscope-noc-loki-v1)\n- **Explore Loki:** [/explore](/explore)\n- **Tier E (глубина логов):** [/d/omniscope-tier-e](/d/omniscope-tier-e)\n"
+        "content": "- **Loki NOC:** [Open error dashboard](/d/omniscope-noc-loki-v1)\n- **Explore Loki:** [/explore](/explore)\n- **Tier E (deeper logs):** [/d/omniscope-tier-e](/d/omniscope-tier-e)\n"
       },
       "fieldConfig": { "defaults": {}, "overrides": [] }
     }

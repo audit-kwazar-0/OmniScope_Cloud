@@ -134,8 +134,8 @@
     {
       "id": 2,
       "type": "table",
-      "title": "ERROR / CRITICAL по типу",
-      "description": "Счётчики за выбранный интервал дашборда. Тип берётся из JSON-полей err_type · error_type · error_code · error_kind; если полей нет — «unclassified».",
+      "title": "ERROR / CRITICAL by type",
+      "description": "Counts for the selected dashboard interval. Type comes from JSON fields err_type · error_type · error_code · error_kind; if none are present — \"unclassified\".",
       "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
       "gridPos": { "h": 12, "w": 8, "x": 8, "y": 1 },
       "pluginVersion": "12.0.0",
@@ -161,7 +161,7 @@
           "id": "organize",
           "options": {
             "excludeByName": { "Time": true, "Metric": true, "dummy": true },
-            "renameByName": { "error_kind": "Тип ошибки", "Value": "Кол-во" },
+            "renameByName": { "error_kind": "Error type", "Value": "Count" },
             "indexByName": {}
           }
         }
@@ -171,7 +171,7 @@
         "cellHeight": "sm",
         "enablePagination": false,
         "footer": { "enablePagination": false, "show": false, "countRows": false, "reducer": ["sum"], "fields": "" },
-        "sortBy": [{ "desc": true, "displayName": "Кол-во" }]
+        "sortBy": [{ "desc": true, "displayName": "Count" }]
       },
       "fieldConfig": {
         "defaults": {
@@ -189,7 +189,7 @@
           "decimals": 0,
           "links": [
             {
-              "title": "Детали в лог-панели",
+              "title": "Details in log panel",
               "url": "/d/${__dashboard.uid}?orgId=${__org.id}&from=${__from}&to=${__to}&timezone=${__timezone}&var-namespace=${namespace:queryparam}&var-app=${app:queryparam}&var-pod=${pod:queryparam}&viewPanel=6",
               "targetBlank": false
             }
@@ -197,7 +197,7 @@
         },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "Тип ошибки" },
+            "matcher": { "id": "byName", "options": "Error type" },
             "properties": [{ "id": "links", "value": [] }, { "id": "custom.width", "value": 200 }]
           }
         ]
@@ -257,8 +257,8 @@
     {
       "id": 6,
       "type": "table",
-      "title": "ERROR / CRITICAL — детали",
-      "description": "Контекст инцидента: «Сервис» = поле/лейбл app, «Под»/«Конт» — размещение в Kubernetes, далее детали ошибки и Raw log.",
+      "title": "ERROR / CRITICAL — details",
+      "description": "Incident context: \"Service\" = app field/label, \"Pod\"/\"Container\" = placement in Kubernetes, then error details and raw log.",
       "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
       "gridPos": { "h": 16, "w": 24, "x": 0, "y": 23 },
       "targets": [
@@ -283,46 +283,46 @@
               "job": true
             },
             "renameByName": {
-              "Time": "Время",
-              "app": "Сервис",
+              "Time": "Time",
+              "app": "Service",
               "namespace": "Namespace",
-              "pod": "Под",
-              "container": "Конт",
+              "pod": "Pod",
+              "container": "Container",
               "stream": "Stream",
-              "level": "Уровень",
-              "detected_level": "Уровень",
-              "err_type": "Тип ошибки",
-              "error_type": "Тип ошибки",
-              "error_code": "Код ошибки",
-              "status": "HTTP статус",
-              "status_code": "HTTP статус",
-              "http_status": "HTTP статус",
-              "method": "Метод",
+              "level": "Level",
+              "detected_level": "Level",
+              "err_type": "Error type",
+              "error_type": "Error type",
+              "error_code": "Error code",
+              "status": "HTTP status",
+              "status_code": "HTTP status",
+              "http_status": "HTTP status",
+              "method": "Method",
               "path": "Path",
               "url": "URL",
               "request_id": "Request ID",
               "requestId": "Request ID",
               "trace_id": "Trace ID",
               "traceId": "Trace ID",
-              "message": "Сообщение",
-              "msg": "Сообщение",
+              "message": "Message",
+              "msg": "Message",
               "Line": "Raw log"
             },
             "indexByName": {
-              "Время": 0,
-              "Сервис": 1,
+              "Time": 0,
+              "Service": 1,
               "Namespace": 2,
-              "Под": 3,
-              "Конт": 4,
-              "Уровень": 5,
-              "Тип ошибки": 6,
-              "Код ошибки": 7,
-              "HTTP статус": 8,
-              "Метод": 9,
+              "Pod": 3,
+              "Container": 4,
+              "Level": 5,
+              "Error type": 6,
+              "Error code": 7,
+              "HTTP status": 8,
+              "Method": 9,
               "Path": 10,
               "Request ID": 11,
               "Trace ID": 12,
-              "Сообщение": 13,
+              "Message": 13,
               "Raw log": 14
             }
           }
@@ -337,7 +337,7 @@
           "countRows": false,
           "fields": ""
         },
-        "sortBy": [{ "desc": true, "displayName": "Время" }]
+        "sortBy": [{ "desc": true, "displayName": "Time" }]
       },
       "fieldConfig": {
         "defaults": {
@@ -352,7 +352,7 @@
         },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "Сообщение" },
+            "matcher": { "id": "byName", "options": "Message" },
             "properties": [
               { "id": "custom.width", "value": 520 },
               { "id": "custom.wrapText", "value": true }
@@ -366,7 +366,7 @@
             ]
           },
           {
-            "matcher": { "id": "byName", "options": "Под" },
+            "matcher": { "id": "byName", "options": "Pod" },
             "properties": [
               { "id": "custom.width", "value": 220 }
             ]
@@ -378,7 +378,7 @@
       "id": 7,
       "type": "timeseries",
       "title": "ERROR / CRITICAL — volume",
-      "description": "График количества error/critical по времени (как в Explore), для быстрого выбора интервала и понимания всплесков.",
+      "description": "Error/critical count over time (like Explore) to pick a time range and spot spikes.",
       "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
       "gridPos": { "h": 8, "w": 24, "x": 0, "y": 15 },
       "targets": [

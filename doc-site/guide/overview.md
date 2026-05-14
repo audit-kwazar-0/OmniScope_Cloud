@@ -1,18 +1,18 @@
-# Обзор платформы
+# Platform overview
 
-Документация построена по текущей реализации в репозитории `OmniScope_Cloud`.
+Documentation reflects the current implementation in the `OmniScope_Cloud` repository.
 
-## Что разворачивается
+## What gets deployed
 
 - AKS (Azure CNI overlay, VNet/subnets)
 - Log Analytics Workspace + Application Insights
 - Azure Monitor Workspace (Managed Prometheus) + Managed Grafana
-- Event Hub + LAW Data Export (путь в OpenSearch/Elastic pipeline)
+- Event Hub + LAW Data Export (path to OpenSearch/Elastic pipeline)
 - Alert rules + Action Group
-- ACR + AcrPull для AKS kubelet
-- Контрольные workload'ы в AKS (`service-a`, `service-b`, OTel collector, Jaeger)
+- ACR + AcrPull for the AKS kubelet
+- Reference workloads in AKS (`service-a`, `service-b`, OTel collector, Jaeger)
 
-## Поток данных
+## Data flow
 
 ```mermaid
 flowchart LR
@@ -31,7 +31,7 @@ flowchart LR
   ALR --> AG[Action Group]
 ```
 
-## Где смотреть в коде
+## Where to look in the repo
 
 - IaC entry: `infra/bicep/main.bicep`
 - Bicep modules: `infra/bicep/modules/*`

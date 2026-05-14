@@ -34,6 +34,12 @@ const deployAksDiagnostics = config.getBoolean("deployAksDiagnostics") ?? true;
 const acrNameOverride = (config.get("acrNameOverride") ?? "").trim();
 const aksSystemVmSize = config.get("aksSystemVmSize") ?? "Standard_B2s_v2";
 const aksSystemNodeCount = config.getNumber("aksSystemNodeCount") ?? 2;
+const enableAzurePolicyAddon = config.getBoolean("enableAzurePolicyAddon") ?? true;
+const enableKeyVaultSecretsProvider = config.getBoolean("enableKeyVaultSecretsProvider") ?? true;
+const keyVaultSecretRotationEnabled = config.getBoolean("keyVaultSecretRotationEnabled") ?? true;
+const keyVaultRotationPollInterval = config.get("keyVaultRotationPollInterval") ?? "2m";
+const grafanaAdminObjectId = (config.get("grafanaAdminObjectId") ?? "").trim();
+const grafanaAdminPrincipalType = (config.get("grafanaAdminPrincipalType") ?? "User").trim();
 
 const tags = (config.getObject<Record<string, string>>("tags") ?? {}) as Record<string, string>;
 
@@ -54,6 +60,7 @@ const deployerIdentityName = `${prefix}-aks-deployer-uai`;
 
 const aksContributorRoleId = "ed7f3fbd-7b88-4dd4-9017-9adb7ce333f8";
 const acrPullRoleId = "7f951dda-4ed3-4680-a7ca-43fe172d538d";
+const grafanaAdminRoleId = "22926164-76b3-42b3-bc55-97df8dab3e41";
 
 function subscriptionRoleDefinition(roleId: string): pulumi.Output<string> {
   return pulumi.interpolate`/subscriptions/${clientConfig.subscriptionId}/providers/Microsoft.Authorization/roleDefinitions/${roleId}`;
@@ -144,6 +151,23 @@ if (deployManagedPrometheus) {
       },
     },
   });
+
+  if (managedGrafana && grafanaAdminObjectId.length > 0) {
+    const grafanaAdminRaName = new random.RandomUuid("grafana-admin-ra", {
+      keepers: {
+        workspace: grafanaWorkspaceName,
+        principal: grafanaAdminObjectId,
+        role: grafanaAdminRoleId,
+      },
+    });
+    new authorization.RoleAssignment("managed-grafana-admin", {
+      scope: managedGrafana.id,
+      roleAssignmentName: grafanaAdminRaName.result,
+      roleDefinitionId: subscriptionRoleDefinition(grafanaAdminRoleId),
+      principalId: grafanaAdminObjectId,
+      principalType: grafanaAdminPrincipalType,
+    });
+  }
 }
 
 let ehNamespace: eventhub.Namespace | undefined;
@@ -325,6 +349,27 @@ if (deployAks) {
     tags,
   });
 
+  const aksAddonProfiles = {
+    omsagent: {
+      enabled: true,
+      config: {
+        logAnalyticsWorkspaceResourceID: law.id,
+      },
+    },
+    ...(enableAzurePolicyAddon ? { azurepolicy: { enabled: true as const } } : {}),
+    ...(enableKeyVaultSecretsProvider
+      ? {
+          azureKeyvaultSecretsProvider: {
+            enabled: true as const,
+            config: {
+              enableSecretRotation: keyVaultSecretRotationEnabled ? "true" : "false",
+              rotationPollInterval: keyVaultRotationPollInterval,
+            },
+          },
+        }
+      : {}),
+  };
+
   aks = new containerservice.ManagedCluster("aks", {
     resourceGroupName: rg.name,
     resourceName: aksClusterName,
@@ -353,14 +398,7 @@ if (deployAks) {
       loadBalancerSku: csEnums.LoadBalancerSku.Standard,
       outboundType: csEnums.OutboundType.LoadBalancer,
     },
-    addonProfiles: {
-      omsagent: {
-        enabled: true,
-        config: {
-          logAnalyticsWorkspaceResourceID: law.id,
-        },
-      },
-    },
+    addonProfiles: aksAddonProfiles,
   });
 
   const aksContribAssignmentName = new random.RandomUuid("aks-contrib-ra", {

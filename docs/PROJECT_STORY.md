@@ -1,71 +1,71 @@
-# OmniScope: история реализации Observability Architecture
+# OmniScope: story of building the observability architecture
 
-Я строил эту платформу как практичный инженерный контур, а не как “демо на слайдах”.  
-Цель была простой: чтобы в любой момент можно было поднять инфраструктуру с нуля, развернуть сервисы, увидеть метрики/логи/трейсы и быстро понять, где именно проблема.
+This platform was built as a practical engineering loop, not a slide-deck demo.  
+The goal was simple: at any time you can stand up infrastructure from scratch, deploy services, see metrics/logs/traces, and quickly see where the problem is.
 
-## Почему этот проект устроен именно так
+## Why the project is structured this way
 
-В observability-проектах чаще всего ломается не сбор данных, а связь между слоями:
+In observability projects, what usually breaks is not data collection but the links between layers:
 
-- инфраструктура живет отдельно от приложений;
-- метрики есть, но без контекста логов и трасс;
-- алерты срабатывают, но без понятного “куда смотреть дальше”.
+- infrastructure lives apart from applications;
+- metrics exist without log and trace context;
+- alerts fire without a clear “what to open next.”
 
-Поэтому философия OmniScope — **единый операционный поток**:
+So OmniScope’s philosophy is **one operational flow**:
 
-1. IaC описывает платформу целиком;
-2. приложение разворачивается в тот же контур;
-3. observability встроена по умолчанию;
-4. у каждого сигнала есть путь до действия (alert -> action group -> канал).
+1. IaC describes the full platform;
+2. the application deploys into the same ring;
+3. observability is on by default;
+4. every signal has a path to action (alert → action group → channel).
 
-## Как собиралась архитектура
+## How the architecture came together
 
-Я начал с ядра в `infra/bicep` и зафиксировал минимально полезный набор:
+I started from the core in `infra/bicep` and locked in a minimally useful set:
 
-- `Log Analytics Workspace` как базовый слой логов;
-- `Application Insights` для трасс и APM;
-- `AKS` как целевая runtime-платформа;
-- `Action Group` для нотификаций.
+- `Log Analytics Workspace` as the base log layer;
+- `Application Insights` for traces and APM;
+- `AKS` as the target runtime;
+- `Action Group` for notifications.
 
-После этого добавил расширения, которые дают “боевую” картину:
+Then I added extensions that give a “real operations” picture:
 
-- `Azure Monitor Workspace` + `Managed Grafana` (метрики и дашборды);
-- `Event Hub` + `LAW Data Export` как путь в OpenSearch/Elastic;
-- `AKS control-plane diagnostics` в LAW;
-- алерты на инфраструктурный и прикладной слой.
+- `Azure Monitor Workspace` + `Managed Grafana` (metrics and dashboards);
+- `Event Hub` + `LAW Data Export` as a path to OpenSearch/Elastic;
+- `AKS control-plane diagnostics` into LAW;
+- alerts for infrastructure and application layers.
 
-Ключевой принцип — всё параметризовано, чтобы один и тот же шаблон работал для минимального и полного профиля.
+The key principle is full parameterization so the same template works for minimal and full profiles.
 
-## Наблюдаемость приложения как часть платформы
+## Application observability as part of the platform
 
-Я специально оставил два простых сервиса (`service-a`, `service-b`), но сделал их полноценными по сигналам:
+I kept two simple services (`service-a`, `service-b`) but made them real in terms of signals:
 
-- OpenTelemetry tracing через OTel Collector;
-- кастомные бизнес-метрики:
+- OpenTelemetry tracing via OTel Collector;
+- custom business metrics:
   - `omniscope_processed_messages_total`
   - `omniscope_processing_errors_total`
-- цепочка вызовов `/call-b`, которая показывает сквозной trace.
+- the `/call-b` chain to show an end-to-end trace.
 
-Так мы видим не только “кластер жив”, а именно **поведение бизнес-потока**.
+That way we see not only “the cluster is up” but **actual business flow behavior**.
 
-## Что показала практическая реализация
+## What implementation surfaced
 
-В процессе проявились типичные Azure-нюансы, которые обычно не попадают в красивые схемы:
+Typical Azure nuances showed up that rarely appear on pretty diagrams:
 
-- ограничения SKU по регионам/подписке;
-- задержка “активации” некоторых ресурсов (например LAW export);
-- несовпадения API-версий для отдельных resource types;
-- тонкости формата scheduled query rules.
+- SKU limits by region/subscription;
+- activation delay for some resources (e.g. LAW export);
+- API version mismatches for certain resource types;
+- scheduled query rule format details.
 
-Я оставил эти сценарии в runbook/evidence, потому что это и есть реальная эксплуатация платформы.
+Those scenarios stay in runbooks/evidence because that is how the platform is actually run.
 
-## Что в итоге важно для команды
+## What matters for the team
 
-OmniScope получился как **повторяемый инженерный процесс**:
+OmniScope is a **repeatable engineering process**:
 
-- поднять платформу можно из одного контура IaC;
-- приложение и observability разворачиваются предсказуемо;
-- smoke/evidence дают понятный “definition of done”;
-- документация описывает не теорию, а реальный рабочий маршрут.
+- the platform can be raised from one IaC path;
+- application and observability deploy predictably;
+- smoke/evidence give a clear definition of done;
+- documentation describes a real working path, not theory.
 
-Если коротко: это не просто “мониторинг в Azure”, а **операционная архитектура**, где любой инцидент можно пройти от симптома до причины без ручной магии.
+In short: not just “monitoring in Azure,” but **operational architecture** where any incident can go from symptom to cause without manual magic.

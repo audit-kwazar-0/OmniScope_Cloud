@@ -61,12 +61,12 @@ function main() {
   body = rewriteRelativeLinks(body, slug)
 
   const header = `---
-title: README репозитория
-description: Синхронизируется с корневого README.md (скрипт scripts/sync-readme.mjs)
+title: Repository README
+description: Synced from root README.md (scripts/sync-readme.mjs)
 outline: deep
 ---
 
-> **Авто-страница:** содержимое копируется из [\`README.md\`](https://github.com/${slug ?? 'YOUR_ORG/YOUR_REPO'}/blob/main/README.md) при \`npm run sync-readme\` / перед сборкой VitePress. Редактируйте **корневой** README, затем пересоберите документацию.
+> **Auto-generated page:** content is copied from [\`README.md\`](https://github.com/${slug ?? 'YOUR_ORG/YOUR_REPO'}/blob/main/README.md) on \`npm run sync-readme\` / before VitePress build. Edit the **root** README, then rebuild docs.
 
 `
 

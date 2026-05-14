@@ -134,7 +134,7 @@ if [[ "$OBSERVABILITY_LOKI_ONLY" == "true" && "$DEPLOY_LOKI" != "true" ]]; then
   exit 1
 fi
 if [[ "$OBSERVABILITY_LOKI_ONLY" == "true" && "$DEPLOY_MANAGED_PROMETHEUS" != "true" ]]; then
-  echo "OBSERVABILITY_LOKI_ONLY=true is wired for Azure Managed Grafana: set DEPLOY_MANAGED_PROMETHEUS=true in .env (Bicep creates Managed Grafana + AMW)." >&2
+  echo "OBSERVABILITY_LOKI_ONLY=true is wired for Azure Managed Grafana: set DEPLOY_MANAGED_PROMETHEUS=true in .env (IaC creates Managed Grafana + AMW)." >&2
   exit 1
 fi
 if [[ "$OBSERVABILITY_LOKI_ONLY" == "true" && ( "$DEPLOY_TEMPO" == "true" || "$DEPLOY_PYROSCOPE" == "true" ) ]]; then
@@ -142,13 +142,26 @@ if [[ "$OBSERVABILITY_LOKI_ONLY" == "true" && ( "$DEPLOY_TEMPO" == "true" || "$D
   exit 1
 fi
 
+OMNISCOPE_IAC="${OMNISCOPE_IAC:-bicep}"
+if [[ "$OMNISCOPE_IAC" == "pulumi" ]]; then
+  require_cmd pulumi
+  PULUMI_STACK="${PULUMI_STACK:-dev}"
+fi
+
+to_bool_cfg() {
+  case "${1,,}" in
+    1 | true | yes) echo true ;;
+    *) echo false ;;
+  esac
+}
+
 echo "[1/8] Azure preflight"
 az account show -o table >/dev/null
 az provider register --namespace Microsoft.OperationsManagement --wait >/dev/null
 
-TMP_PARAMS="$(mktemp /tmp/omniscope-params.XXXXXX.json)"
+TMP_PARAMS=""
 cleanup_tmp() {
-  rm -f "$TMP_PARAMS"
+  [[ -n "$TMP_PARAMS" ]] && rm -f "$TMP_PARAMS"
 }
 trap cleanup_tmp EXIT
 
@@ -162,59 +175,114 @@ if [[ "$DEPLOY_MANAGED_PROMETHEUS" == "true" && -z "$GRAFANA_ADMIN_OID" ]]; then
   exit 1
 fi
 GRAFANA_ADMIN_PTYPE="${GRAFANA_ADMIN_PRINCIPAL_TYPE:-User}"
-jq \
-  --arg prefix "$OMNISCOPE_PREFIX" \
-  --arg location "$AZ_LOCATION" \
-  --arg alertEmail "$ALERT_EMAIL" \
-  --arg vmSize "$AKS_SYSTEM_VM_SIZE" \
-  --arg acrOverride "$ACR_NAME_OVERRIDE" \
-  --arg webhook "$TEAMS_WEBHOOK_URI" \
-  --arg grafanaOid "$GRAFANA_ADMIN_OID" \
-  --arg grafanaPtype "$GRAFANA_ADMIN_PTYPE" \
-  --argjson deployAks "$DEPLOY_AKS" \
-  --argjson deployAcr "$DEPLOY_ACR" \
-  --argjson deployProm "$DEPLOY_MANAGED_PROMETHEUS" \
-  --argjson deployLogExport "$DEPLOY_LOG_EXPORT" \
-  --argjson deployAksDiagnostics "$DEPLOY_AKS_DIAGNOSTICS" \
-  --argjson enableAzurePolicyAddon "$ENABLE_AKS_AZURE_POLICY" \
-  --argjson enableKvProvider "$ENABLE_AKS_KEYVAULT_PROVIDER" \
-  --argjson kvRotationEnabled "$AKS_KEYVAULT_SECRET_ROTATION_ENABLED" \
-  --arg kvRotationInterval "$AKS_KEYVAULT_SECRET_ROTATION_INTERVAL" \
-  --argjson nodeCount "$AKS_SYSTEM_NODE_COUNT" \
-  --argjson stressWorkers "$STRESS_CPU_WORKERS" \
-  '.parameters.prefix.value = $prefix
-   | .parameters.location.value = $location
-   | .parameters.alertEmail.value = $alertEmail
-   | .parameters.deployAks.value = $deployAks
-   | .parameters.deployAcr.value = $deployAcr
-   | .parameters.deployManagedPrometheus.value = $deployProm
-   | .parameters.deployLogExport.value = $deployLogExport
-   | .parameters.deployAksDiagnostics.value = $deployAksDiagnostics
-   | .parameters.enableAzurePolicyAddon.value = $enableAzurePolicyAddon
-   | .parameters.enableKeyVaultSecretsProvider.value = $enableKvProvider
-   | .parameters.keyVaultSecretRotationEnabled.value = $kvRotationEnabled
-   | .parameters.keyVaultRotationPollInterval.value = $kvRotationInterval
-   | .parameters.aksSystemVmSize.value = $vmSize
-   | .parameters.aksSystemNodeCount.value = $nodeCount
-   | .parameters.stressCpuWorkers.value = $stressWorkers
-   | .parameters.acrNameOverride.value = $acrOverride
-   | .parameters.teamsWebhookUri.value = $webhook
-   | .parameters.grafanaAdminObjectId.value = (if $deployProm then $grafanaOid else "" end)
-   | .parameters.grafanaAdminPrincipalType.value = $grafanaPtype' \
-  "$BICEP_DIR/parameters.test-aks.json" > "$TMP_PARAMS"
 
-echo "[3/8] Deploy infrastructure (Bicep)"
-(
-  cd "$BICEP_DIR"
-  PARAMS_FILE="$TMP_PARAMS" DEPLOYMENT_NAME="$DEPLOYMENT_NAME" LOCATION="$AZ_LOCATION" ./deploy.sh deploy
-)
+if [[ "$OMNISCOPE_IAC" != "pulumi" ]]; then
+  TMP_PARAMS="$(mktemp /tmp/omniscope-params.XXXXXX.json)"
+  jq \
+    --arg prefix "$OMNISCOPE_PREFIX" \
+    --arg location "$AZ_LOCATION" \
+    --arg alertEmail "$ALERT_EMAIL" \
+    --arg vmSize "$AKS_SYSTEM_VM_SIZE" \
+    --arg acrOverride "$ACR_NAME_OVERRIDE" \
+    --arg webhook "$TEAMS_WEBHOOK_URI" \
+    --arg grafanaOid "$GRAFANA_ADMIN_OID" \
+    --arg grafanaPtype "$GRAFANA_ADMIN_PTYPE" \
+    --argjson deployAks "$DEPLOY_AKS" \
+    --argjson deployAcr "$DEPLOY_ACR" \
+    --argjson deployProm "$DEPLOY_MANAGED_PROMETHEUS" \
+    --argjson deployLogExport "$DEPLOY_LOG_EXPORT" \
+    --argjson deployAksDiagnostics "$DEPLOY_AKS_DIAGNOSTICS" \
+    --argjson enableAzurePolicyAddon "$ENABLE_AKS_AZURE_POLICY" \
+    --argjson enableKvProvider "$ENABLE_AKS_KEYVAULT_PROVIDER" \
+    --argjson kvRotationEnabled "$AKS_KEYVAULT_SECRET_ROTATION_ENABLED" \
+    --arg kvRotationInterval "$AKS_KEYVAULT_SECRET_ROTATION_INTERVAL" \
+    --argjson nodeCount "$AKS_SYSTEM_NODE_COUNT" \
+    --argjson stressWorkers "$STRESS_CPU_WORKERS" \
+    '.parameters.prefix.value = $prefix
+     | .parameters.location.value = $location
+     | .parameters.alertEmail.value = $alertEmail
+     | .parameters.deployAks.value = $deployAks
+     | .parameters.deployAcr.value = $deployAcr
+     | .parameters.deployManagedPrometheus.value = $deployProm
+     | .parameters.deployLogExport.value = $deployLogExport
+     | .parameters.deployAksDiagnostics.value = $deployAksDiagnostics
+     | .parameters.enableAzurePolicyAddon.value = $enableAzurePolicyAddon
+     | .parameters.enableKeyVaultSecretsProvider.value = $enableKvProvider
+     | .parameters.keyVaultSecretRotationEnabled.value = $kvRotationEnabled
+     | .parameters.keyVaultRotationPollInterval.value = $kvRotationInterval
+     | .parameters.aksSystemVmSize.value = $vmSize
+     | .parameters.aksSystemNodeCount.value = $nodeCount
+     | .parameters.stressCpuWorkers.value = $stressWorkers
+     | .parameters.acrNameOverride.value = $acrOverride
+     | .parameters.teamsWebhookUri.value = $webhook
+     | .parameters.grafanaAdminObjectId.value = (if $deployProm then $grafanaOid else "" end)
+     | .parameters.grafanaAdminPrincipalType.value = $grafanaPtype' \
+    "$BICEP_DIR/parameters.test-aks.json" > "$TMP_PARAMS"
+fi
+
+if [[ "$OMNISCOPE_IAC" == "pulumi" ]]; then
+  echo "[3/8] Deploy infrastructure (Pulumi)"
+  (
+    cd "$ROOT_DIR/infra/pulumi"
+    if [[ ! -d node_modules ]]; then
+      npm ci
+    fi
+    pulumi stack select "$PULUMI_STACK" --create >/dev/null
+    pulumi config set omniscope:prefix "$OMNISCOPE_PREFIX" --stack "$PULUMI_STACK"
+    pulumi config set omniscope:location "$AZ_LOCATION" --stack "$PULUMI_STACK"
+    pulumi config set omniscope:alertEmail "$ALERT_EMAIL" --stack "$PULUMI_STACK"
+    pulumi config set omniscope:deployAks "$(to_bool_cfg "$DEPLOY_AKS")" --stack "$PULUMI_STACK"
+    pulumi config set omniscope:deployAcr "$(to_bool_cfg "$DEPLOY_ACR")" --stack "$PULUMI_STACK"
+    pulumi config set omniscope:deployManagedPrometheus "$(to_bool_cfg "$DEPLOY_MANAGED_PROMETHEUS")" --stack "$PULUMI_STACK"
+    pulumi config set omniscope:deployLogExport "$(to_bool_cfg "$DEPLOY_LOG_EXPORT")" --stack "$PULUMI_STACK"
+    pulumi config set omniscope:deployAksDiagnostics "$(to_bool_cfg "$DEPLOY_AKS_DIAGNOSTICS")" --stack "$PULUMI_STACK"
+    pulumi config set omniscope:enableAzurePolicyAddon "$(to_bool_cfg "$ENABLE_AKS_AZURE_POLICY")" --stack "$PULUMI_STACK"
+    pulumi config set omniscope:enableKeyVaultSecretsProvider "$(to_bool_cfg "$ENABLE_AKS_KEYVAULT_PROVIDER")" --stack "$PULUMI_STACK"
+    pulumi config set omniscope:keyVaultSecretRotationEnabled "$(to_bool_cfg "$AKS_KEYVAULT_SECRET_ROTATION_ENABLED")" --stack "$PULUMI_STACK"
+    pulumi config set omniscope:keyVaultRotationPollInterval "$AKS_KEYVAULT_SECRET_ROTATION_INTERVAL" --stack "$PULUMI_STACK"
+    pulumi config set omniscope:aksSystemVmSize "$AKS_SYSTEM_VM_SIZE" --stack "$PULUMI_STACK"
+    pulumi config set omniscope:aksSystemNodeCount "$AKS_SYSTEM_NODE_COUNT" --stack "$PULUMI_STACK"
+    if [[ -n "$ACR_NAME_OVERRIDE" ]]; then
+      pulumi config set omniscope:acrNameOverride "$ACR_NAME_OVERRIDE" --stack "$PULUMI_STACK"
+    else
+      pulumi config rm omniscope:acrNameOverride --stack "$PULUMI_STACK" 2>/dev/null || true
+    fi
+    if [[ -n "${TEAMS_WEBHOOK_URI:-}" ]]; then
+      pulumi config set --secret omniscope:teamsWebhookUri "$TEAMS_WEBHOOK_URI" --stack "$PULUMI_STACK"
+    else
+      pulumi config rm omniscope:teamsWebhookUri --stack "$PULUMI_STACK" 2>/dev/null || true
+    fi
+    if [[ "$DEPLOY_MANAGED_PROMETHEUS" == "true" ]]; then
+      pulumi config set omniscope:grafanaAdminObjectId "$GRAFANA_ADMIN_OID" --stack "$PULUMI_STACK"
+      pulumi config set omniscope:grafanaAdminPrincipalType "$GRAFANA_ADMIN_PTYPE" --stack "$PULUMI_STACK"
+    else
+      pulumi config rm omniscope:grafanaAdminObjectId --stack "$PULUMI_STACK" 2>/dev/null || true
+      pulumi config rm omniscope:grafanaAdminPrincipalType --stack "$PULUMI_STACK" 2>/dev/null || true
+    fi
+    pulumi up --yes --stack "$PULUMI_STACK"
+  )
+else
+  echo "[3/8] Deploy infrastructure (Bicep)"
+  (
+    cd "$BICEP_DIR"
+    PARAMS_FILE="$TMP_PARAMS" DEPLOYMENT_NAME="$DEPLOYMENT_NAME" LOCATION="$AZ_LOCATION" ./deploy.sh deploy
+  )
+fi
 
 echo "[4/8] Resolve deployment outputs"
-OUTPUTS_JSON="$(az deployment sub show --name "$DEPLOYMENT_NAME" --query properties.outputs -o json)"
-RG_NAME="$(jq -r '.resourceGroupName.value' <<<"$OUTPUTS_JSON")"
-AKS_NAME="$(jq -r '.aksName.value' <<<"$OUTPUTS_JSON")"
-ACR_LOGIN_SERVER="$(jq -r '.acrLoginServer.value' <<<"$OUTPUTS_JSON")"
-GRAFANA_URL="$(jq -r '.grafanaUrl.value // empty' <<<"$OUTPUTS_JSON")"
+if [[ "$OMNISCOPE_IAC" == "pulumi" ]]; then
+  OUTPUTS_JSON="$(cd "$ROOT_DIR/infra/pulumi" && pulumi stack output --json --stack "$PULUMI_STACK")"
+  RG_NAME="$(jq -r '.resourceGroupName // empty' <<<"$OUTPUTS_JSON")"
+  AKS_NAME="$(jq -r '.aksName // empty' <<<"$OUTPUTS_JSON")"
+  ACR_LOGIN_SERVER="$(jq -r '.acrLoginServer // empty' <<<"$OUTPUTS_JSON")"
+  GRAFANA_URL="$(jq -r '.grafanaUrl // empty' <<<"$OUTPUTS_JSON")"
+else
+  OUTPUTS_JSON="$(az deployment sub show --name "$DEPLOYMENT_NAME" --query properties.outputs -o json)"
+  RG_NAME="$(jq -r '.resourceGroupName.value' <<<"$OUTPUTS_JSON")"
+  AKS_NAME="$(jq -r '.aksName.value' <<<"$OUTPUTS_JSON")"
+  ACR_LOGIN_SERVER="$(jq -r '.acrLoginServer.value' <<<"$OUTPUTS_JSON")"
+  GRAFANA_URL="$(jq -r '.grafanaUrl.value // empty' <<<"$OUTPUTS_JSON")"
+fi
 
 if [[ -z "$RG_NAME" || "$RG_NAME" == "null" || -z "$AKS_NAME" || "$AKS_NAME" == "null" ]]; then
   echo "Failed to resolve RG/AKS outputs from deployment $DEPLOYMENT_NAME" >&2
@@ -368,7 +436,9 @@ kubectl -n omniscope run smoke-curl --rm -i --restart=Never --image=curlimages/c
 cat <<EOF
 
 Deployment complete.
+OMNISCOPE_IAC=$OMNISCOPE_IAC
 DEPLOYMENT_NAME=$DEPLOYMENT_NAME
+$( [[ "$OMNISCOPE_IAC" == "pulumi" ]] && echo "PULUMI_STACK=$PULUMI_STACK" || true )
 RESOURCE_GROUP=$RG_NAME
 AKS_NAME=$AKS_NAME
 ACR_LOGIN_SERVER=$ACR_LOGIN_SERVER

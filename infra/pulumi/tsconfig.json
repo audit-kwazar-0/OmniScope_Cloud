@@ -10,5 +10,5 @@
     "esModuleInterop": true,
     "skipLibCheck": true
   },
-  "files": ["index.ts"]
+  "files": ["index.ts", "shims.d.ts"]
 }

@@ -1,9 +1,9 @@
-# Минимальная проверка: GitHub Actions → Azure (OIDC).
-# Ожидается GitHub Environment **bicep** с Secrets: AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID.
-# В Entra для этого же приложения нужен federated credential с типом **Environment** и именем **bicep**
-# (не только Branch — см. infra/bicep/GITHUB_ACTIONS_VARIABLES.md).
+# Minimal check: GitHub Actions → Azure (OIDC).
+# Expects GitHub Environment **bicep** with Secrets: AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID.
+# In Entra the same app needs a federated credential of type **Environment** named **bicep**
+# (not Branch only — see infra/bicep/GITHUB_ACTIONS_VARIABLES.md).
 #
-# Запуск: Actions → "Azure — connection test" → Run workflow.
+# Run: Actions → "Azure — connection test" → Run workflow.
 
 name: 'Azure — connection test'
 
@@ -24,7 +24,7 @@ jobs:
           git config --global init.defaultBranch main
           git config --global advice.defaultBranchName false
 
-      - name: Проверка Secrets (Environment bicep)
+      - name: Check Secrets (Environment bicep)
         env:
           AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
@@ -36,16 +36,16 @@ jobs:
           [ -z "${AZURE_TENANT_ID:-}" ] && missing="$missing AZURE_TENANT_ID"
           [ -z "${AZURE_CLIENT_ID:-}" ] && missing="$missing AZURE_CLIENT_ID"
           if [ -n "$missing" ]; then
-            echo "::error::В контексте job не найдены Secrets:$missing"
+            echo "::error::Secrets not found in job context:$missing"
             echo ""
-            echo "Задайте их в Settings → Environments → bicep → Environment secrets **или** в Repository secrets (имена те же)."
-            echo "Имена строго: AZURE_SUBSCRIPTION_ID, AZURE_TENANT_ID, AZURE_CLIENT_ID"
+            echo "Set them under Settings → Environments → bicep → Environment secrets **or** Repository secrets (same names)."
+            echo "Names must be exactly: AZURE_SUBSCRIPTION_ID, AZURE_TENANT_ID, AZURE_CLIENT_ID"
             echo ""
-            echo "Альтернатива без Environment: уберите «environment: bicep» из workflow и храните AZURE_* как Repository Secrets (не Variables — для OIDC нужны secrets)."
-            echo "Док: infra/bicep/GITHUB_ACTIONS_VARIABLES.md"
+            echo "Alternative without Environment: remove environment: bicep from the workflow and store AZURE_* as Repository Secrets (not Variables — OIDC needs secrets)."
+            echo "Doc: infra/bicep/GITHUB_ACTIONS_VARIABLES.md"
             exit 1
           fi
-          echo "Три Azure OIDC Secrets на месте (Environment и/или Repository)."
+          echo "All three Azure OIDC secrets present (Environment and/or Repository)."
 
       - name: Azure login (OIDC)
         uses: azure/login@v2
@@ -54,13 +54,13 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Подписка активна
+      - name: Subscription active
         run: |
           echo "=== az account show ==="
           az account show --output table
-          echo "=== OK: GitHub достиг Azure ==="
+          echo "=== OK: GitHub reached Azure ==="
 
-      - name: Preflight — переменные для «Infra — Bicep what-if»
+      - name: Preflight — variables for "Infra — Bicep what-if"
         env:
           BICEP_PREFIX: ${{ vars.BICEP_PREFIX }}
           BICEP_LOCATION: ${{ vars.BICEP_LOCATION }}
@@ -70,18 +70,18 @@ jobs:
           BICEP_DEPLOY_ACR: ${{ vars.BICEP_DEPLOY_ACR }}
         run: |
           set -euo pipefail
-          echo "=== Preflight для workflow «Infra — Bicep what-if (Azure)» ==="
-          echo "(Этот шаг не валит job — только подсказки.)"
+          echo "=== Preflight for workflow \"Infra — Bicep what-if (Azure)\" ==="
+          echo "(This step does not fail the job — hints only.)"
           ok=1
-          if [ -z "${BICEP_PREFIX:-}" ]; then echo "::warning::Не задана Variable BICEP_PREFIX — what-if упадёт на проверке конфигурации."; ok=0; fi
-          if [ -z "${BICEP_LOCATION:-}" ]; then echo "::warning::Не задана Variable BICEP_LOCATION — what-if упадёт."; ok=0; fi
+          if [ -z "${BICEP_PREFIX:-}" ]; then echo "::warning::Variable BICEP_PREFIX not set — what-if will fail configuration check."; ok=0; fi
+          if [ -z "${BICEP_LOCATION:-}" ]; then echo "::warning::Variable BICEP_LOCATION not set — what-if will fail."; ok=0; fi
           if [ -z "${BICEP_ALERT_EMAIL:-}" ] && [ "${BICEP_ALERT_HAS_SECRET:-false}" != "true" ]; then
-            echo "::warning::Нет ни vars.BICEP_ALERT_EMAIL, ни secrets.BICEP_ALERT_EMAIL — what-if упадёт."
+            echo "::warning::Neither vars.BICEP_ALERT_EMAIL nor secrets.BICEP_ALERT_EMAIL — what-if will fail."
             ok=0
           fi
-          echo "BICEP_DEPLOY_AKS (vars) = ${BICEP_DEPLOY_AKS:-<пусто> → в what-if будет false}"
-          echo "BICEP_DEPLOY_ACR (vars) = ${BICEP_DEPLOY_ACR:-<пусто> → в what-if будет false}"
+          echo "BICEP_DEPLOY_AKS (vars) = ${BICEP_DEPLOY_AKS:-<empty> → false in what-if}"
+          echo "BICEP_DEPLOY_ACR (vars) = ${BICEP_DEPLOY_ACR:-<empty> → false in what-if}"
           if [ "${BICEP_DEPLOY_AKS:-}" != "true" ]; then
-            echo "::notice::Для плана с AKS задайте Variable BICEP_DEPLOY_AKS=true (и обычно BICEP_DEPLOY_ACR=true) или в what-if выберите режим «true» в dispatch-полях."
+            echo "::notice::For a plan with AKS set Variable BICEP_DEPLOY_AKS=true (and usually BICEP_DEPLOY_ACR=true) or pick true in what-if dispatch fields."
           fi
-          if [ "$ok" = 1 ]; then echo "Минимальный набор BICEP_* для запуска what-if выглядит заданным."; fi
+          if [ "$ok" = 1 ]; then echo "Minimal BICEP_* set for what-if looks configured."; fi

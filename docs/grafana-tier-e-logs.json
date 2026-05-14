@@ -14,7 +14,7 @@
   "panels": [
     {
       "type": "row",
-      "title": "Быстрый поток ошибок",
+      "title": "Fast error stream",
       "id": 1,
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
       "collapsed": false,
@@ -23,11 +23,11 @@
     {
       "id": 2,
       "type": "text",
-      "title": "Связь с NOC",
+      "title": "NOC link",
       "gridPos": { "h": 3, "w": 24, "x": 0, "y": 1 },
       "options": {
         "mode": "markdown",
-        "content": "Полная таблица инцидента и парсинг — в **[OmniScope NOC (Loki)](/d/omniscope-noc-loki-v1)**. Здесь — компактный **log panel** для drill-down.\n"
+        "content": "Full incident table and parsing live in **[OmniScope NOC (Loki)](/d/omniscope-noc-loki-v1)**. Here is a compact **log panel** for drill-down.\n"
       }
     },
     {

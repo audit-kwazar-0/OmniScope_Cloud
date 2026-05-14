@@ -1,6 +1,6 @@
 # Deployment Runbook
 
-Полный runbook хранится в `docs/DEPLOYMENT_RUNBOOK.md`. Здесь краткая версия.
+The full runbook lives in `docs/DEPLOYMENT_RUNBOOK.md`. This is a short version.
 
 ## 1) Infra deploy
 

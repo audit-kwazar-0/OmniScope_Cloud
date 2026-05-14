@@ -1,11 +1,11 @@
 # Subscription-level Bicep what-if using OIDC (no client secret).
-# Ожидается GitHub Environment **bicep**:
-#   Secrets: AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID (как в «Azure — connection test»)
-#   Variables (environment или repository): BICEP_PREFIX, BICEP_LOCATION; опционально BICEP_DEPLOY_AKS / BICEP_DEPLOY_ACR
-#   Secret или Variable: BICEP_ALERT_EMAIL
-# При запуске можно переопределить AKS/ACR полями dispatch (без смены постоянных Variables).
+# Expects GitHub Environment **bicep**:
+#   Secrets: AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID (same as "Azure — connection test")
+#   Variables (environment or repository): BICEP_PREFIX, BICEP_LOCATION; optional BICEP_DEPLOY_AKS / BICEP_DEPLOY_ACR
+#   Secret or Variable: BICEP_ALERT_EMAIL
+# Dispatch inputs can override AKS/ACR without changing permanent Variables.
 #
-# См. infra/bicep/GITHUB_ACTIONS_VARIABLES.md (Environment + Federated credential + цепочка пайплайнов).
+# See infra/bicep/GITHUB_ACTIONS_VARIABLES.md (Environment + federated credential + pipeline chain).
 
 name: 'Infra — Bicep what-if (Azure)'
 
@@ -13,7 +13,7 @@ on:
   workflow_dispatch:
     inputs:
       deploy_aks:
-        description: 'Параметр deployAks (use-variable = взять из BICEP_DEPLOY_AKS)'
+        description: 'deployAks parameter (use-variable = from BICEP_DEPLOY_AKS)'
         type: choice
         options:
           - use-variable
@@ -21,7 +21,7 @@ on:
           - 'false'
         default: use-variable
       deploy_acr:
-        description: 'Параметр deployAcr (use-variable = взять из BICEP_DEPLOY_ACR)'
+        description: 'deployAcr parameter (use-variable = from BICEP_DEPLOY_ACR)'
         type: choice
         options:
           - use-variable
@@ -62,8 +62,8 @@ jobs:
             eval "v=\${$name}"
             if [ -z "$v" ]; then
               echo "Missing value for $name"
-              echo "Azure: Repository или Environment **Secrets** AZURE_SUBSCRIPTION_ID, AZURE_TENANT_ID, AZURE_CLIENT_ID"
-              echo "Bicep: **Variables** BICEP_PREFIX, BICEP_LOCATION (см. «Azure — connection test» Preflight и GITHUB_ACTIONS_VARIABLES.md)"
+              echo "Azure: Repository or Environment **Secrets** AZURE_SUBSCRIPTION_ID, AZURE_TENANT_ID, AZURE_CLIENT_ID"
+              echo "Bicep: **Variables** BICEP_PREFIX, BICEP_LOCATION (see \"Azure — connection test\" Preflight and GITHUB_ACTIONS_VARIABLES.md)"
               exit 1
             fi
           done

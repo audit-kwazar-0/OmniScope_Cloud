@@ -4,17 +4,17 @@ outline: false
 
 # OmniScope Documentation
 
-Документация пересобрана с нуля по текущему коду репозитория: `infra/bicep`, `examples/`, GitHub workflows и фактическому runtime-поведению в AKS.
+This site is rebuilt from the current repository code: `infra/bicep`, `examples/`, GitHub workflows, and actual AKS runtime behavior.
 
-Используйте боковое меню **Guide** или быстрые ссылки ниже.
+Use the **Guide** sidebar or the quick links below.
 
-| Статья | Содержание |
-|--------|------------|
-| [README репозитория](/guide/repository-readme) | Автосинхронизированная копия корневого `README.md` |
-| [Обзор платформы](/guide/overview) | Компоненты, потоки данных и цели observability |
-| [IaC (Bicep)](/guide/iac-bicep) | Структура Bicep модулей и параметры |
-| [Runbook деплоя](/guide/deployment-runbook) | Практический `create -> deploy -> verify -> cleanup` |
-| [Observability модель](/guide/observability) | Метрики, логи, трассы, дашборды |
-| [Алерты и маршрутизация](/guide/alerts) | Scheduled Query Rules + Action Group |
-| [Gateway API](/guide/gateway-api) | Опциональная экспозиция сервисов через Gateway/HTTPRoute |
-| [Evidence / DoD](/guide/evidence) | Чеклист доказательств и скриншотов |
+| Article | Contents |
+|---------|----------|
+| [Repository README](/guide/repository-readme) | Auto-synced copy of the root `README.md` |
+| [Platform overview](/guide/overview) | Components, data flows, observability goals |
+| [IaC (Bicep)](/guide/iac-bicep) | Bicep module layout and parameters |
+| [Deployment runbook](/guide/deployment-runbook) | Practical `create -> deploy -> verify -> cleanup` |
+| [Observability model](/guide/observability) | Metrics, logs, traces, dashboards |
+| [Alerts and routing](/guide/alerts) | Scheduled Query Rules + Action Group |
+| [Gateway API](/guide/gateway-api) | Optional exposure of services via Gateway/HTTPRoute |
+| [Evidence / DoD](/guide/evidence) | Proof checklist and screenshots |

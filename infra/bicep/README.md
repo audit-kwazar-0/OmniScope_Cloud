@@ -17,42 +17,42 @@ Deploys a minimal Azure Observability foundation:
 - Azure CLI installed
 - Authenticated session: `az login`
 
-## Deploy & debug (скрипт)
+## Deploy & debug (script)
 
-1. Скопируйте параметры и подставьте свой e-mail и префикс:
+1. Copy parameters and set your email and prefix:
 
    ```bash
    cp parameters.example.json parameters.local.json
-   # отредактируйте parameters.local.json (файл в .gitignore)
+   # edit parameters.local.json (file is in .gitignore)
    ```
 
-   Для **тестового AKS + ACR** (одна нода `Standard_B2s_v2`, меньше нагрузка stress) можно взять готовый профиль и при необходимости скопировать в `parameters.local.json`:
+   For **test AKS + ACR** (single node `Standard_B2s_v2`, lighter stress load) you can start from the ready profile and copy into `parameters.local.json` if needed:
 
    ```bash
    cp parameters.test-aks.json parameters.local.json
-   # подставьте свой alertEmail и при желании prefix / region
+   # set your alertEmail and optionally prefix / region
    ```
 
-2. Команды из каталога `infra/bicep/`:
+2. Commands from `infra/bicep/`:
 
-   | Команда | Действие |
-   |---------|----------|
-   | `./deploy.sh validate` | Только `az bicep build` (без Azure) |
-   | `./deploy.sh what-if` | Сухой прогон против текущей подписки (`az login` обязателен) |
-   | `./deploy.sh deploy` | Развёртывание `az deployment sub create` |
-   | `./deploy.sh deploy-debug` | То же с `--debug` у Azure CLI |
+   | Command | Action |
+   |---------|--------|
+   | `./deploy.sh validate` | `az bicep build` only (no Azure) |
+   | `./deploy.sh what-if` | Dry run against current subscription (`az login` required) |
+   | `./deploy.sh deploy` | `az deployment sub create` |
+   | `./deploy.sh deploy-debug` | Same with `--debug` on Azure CLI |
 
-   Переменные окружения: `PARAMS_FILE`, `LOCATION`, `DEPLOYMENT_NAME`.
+   Environment variables: `PARAMS_FILE`, `LOCATION`, `DEPLOYMENT_NAME`.
 
-В **Cursor / VS Code**: Command Palette → **Tasks: Run Task** → пункты **Bicep: …**.
+In **Cursor / VS Code**: Command Palette → **Tasks: Run Task** → **Bicep: …** tasks.
 
-В **CI**:
+In **CI**:
 
-- [`.github/workflows/azure-connection-test.yml`](../../.github/workflows/azure-connection-test.yml) — OIDC + `az account show` и **Preflight** (подсказки по `BICEP_*` для what-if; см. [`GITHUB_ACTIONS_VARIABLES.md`](./GITHUB_ACTIONS_VARIABLES.md)).
-- [`.github/workflows/infra-bicep.yml`](../../.github/workflows/infra-bicep.yml) — `az bicep build` при изменениях в `infra/bicep/` (без Azure).
-- [`.github/workflows/infra-bicep-what-if.yml`](../../.github/workflows/infra-bicep-what-if.yml) — вручную **What-If** (OIDC); при запуске можно выбрать **deploy_aks / deploy_acr = true** без смены Variables. Список имён: **[`GITHUB_ACTIONS_VARIABLES.md`](./GITHUB_ACTIONS_VARIABLES.md)**.
+- [`.github/workflows/azure-connection-test.yml`](../../.github/workflows/azure-connection-test.yml) — OIDC + `az account show` and **Preflight** (hints for `BICEP_*` before what-if; see [`GITHUB_ACTIONS_VARIABLES.md`](./GITHUB_ACTIONS_VARIABLES.md)).
+- [`.github/workflows/infra-bicep.yml`](../../.github/workflows/infra-bicep.yml) — `az bicep build` on changes under `infra/bicep/` (no Azure).
+- [`.github/workflows/infra-bicep-what-if.yml`](../../.github/workflows/infra-bicep-what-if.yml) — manual **What-If** (OIDC); you can pick **deploy_aks / deploy_acr = true** without changing Variables. Name list: **[`GITHUB_ACTIONS_VARIABLES.md`](./GITHUB_ACTIONS_VARIABLES.md)**.
 
-## Deploy (вручную через CLI)
+## Deploy (manual CLI)
 
 Example:
 
@@ -65,7 +65,7 @@ az deployment sub create \
     alertEmail="oncall@example.com"
 ```
 
-С файлом параметров:
+With a parameters file:
 
 ```bash
 az deployment sub create \

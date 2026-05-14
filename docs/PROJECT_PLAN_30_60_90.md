@@ -1,103 +1,103 @@
-# OmniScope: Проектный план 30/60/90
+# OmniScope: 30/60/90 project plan
 
-## 1) Концепция проекта
+## 1) Project concept
 
-OmniScope — это observability-платформа для Azure/AKS, где метрики, логи, трассировки и алерты работают как единая система принятия решений.
+OmniScope is an observability platform for Azure/AKS where metrics, logs, traces, and alerts work as one decision-making system.
 
-Цель: сократить время диагностики инцидентов и повысить предсказуемость релизов за счет стандартизированного контура мониторинга и эксплуатации.
+Goal: shorten incident diagnosis time and make releases more predictable through a standardized monitoring and operations ring.
 
-## 2) Целевые KPI
+## 2) Target KPIs
 
-### Надежность и эксплуатация
-- MTTR по приоритетным инцидентам: снижение минимум на 30% после внедрения базового контура.
-- MTTD (время до обнаружения): не более 5 минут для критичных сбоев.
-- Доля алертов с actionable-контекстом (дашборд + лог/трейс): 90%+.
+### Reliability and operations
+- MTTR for priority incidents: at least 30% reduction after baseline rollout.
+- MTTD (time to detect): no more than 5 minutes for critical failures.
+- Share of alerts with actionable context (dashboard + log/trace): 90%+.
 
-### Покрытие observability
-- Сервисы с OTel-инструментацией: 100% для сервисов, входящих в релизный контур.
-- Сервисы с telemetry contract (метрики/логи/trace attributes): 100% для новых сервисов.
-- Дашборды с SLI/SLO-панелями: минимум 1 рабочий dashboard на домен/команду.
+### Observability coverage
+- Services with OTel instrumentation: 100% for services in the release path.
+- Services with a telemetry contract (metrics/logs/trace attributes): 100% for new services.
+- Dashboards with SLI/SLO panels: at least one working dashboard per domain/team.
 
-### Качество поставки
-- IaC-пайплайны (`validate` + `what-if`) успешны в 95%+ запусков на main.
-- Smoke e2e после деплоя: 100% обязательных проверок проходят.
-- Время восстановления среды из кода (clean deploy): не более 60 минут.
+### Delivery quality
+- IaC pipelines (`validate` + `what-if`) succeed in 95%+ of runs on `main`.
+- Post-deploy smoke e2e: 100% of mandatory checks pass.
+- Time to restore an environment from code (clean deploy): no more than 60 minutes.
 
-## 3) Основные риски и меры снижения
+## 3) Main risks and mitigations
 
-### Риск 1: Шумные алерты и alert fatigue
-- **Симптом**: слишком много некачественных срабатываний.
-- **Митигирование**: единые правила severity, обязательные runbook-ссылки, регулярный alert review (еженедельно).
+### Risk 1: noisy alerts and alert fatigue
+- **Symptom**: too many low-quality firings.
+- **Mitigation**: unified severity rules, mandatory runbook links, weekly alert review.
 
-### Риск 2: Рост стоимости хранения/обработки телеметрии
-- **Симптом**: высокая cardinality метрик, избыточный log volume.
-- **Митигирование**: budgets/retention policy, фильтрация low-value логов, гигиена labels/attributes.
+### Risk 2: rising cost of telemetry storage/processing
+- **Symptom**: high metric cardinality, excessive log volume.
+- **Mitigation**: budgets/retention policy, filtering low-value logs, label/attribute hygiene.
 
-### Риск 3: Неполная корреляция между сигналами
-- **Симптом**: сложно перейти от алерта к первопричине.
-- **Митигирование**: стандартизация trace IDs/request IDs, data links в Grafana, OTel conventions как обязательный контракт.
+### Risk 3: incomplete correlation between signals
+- **Symptom**: hard to go from alert to root cause.
+- **Mitigation**: standardize trace IDs/request IDs, Grafana data links, OTel conventions as a required contract.
 
-### Риск 4: Дрейф инфраструктуры
-- **Симптом**: среда не соответствует репозиторию.
-- **Митигирование**: only-IaC changes для core ресурсов, регулярный `what-if`, контроль изменений через PR.
+### Risk 4: infrastructure drift
+- **Symptom**: environment does not match the repository.
+- **Mitigation**: IaC-only changes for core resources, regular `what-if`, PR-gated changes.
 
-### Риск 5: Зависимость от ручных действий
-- **Симптом**: эксплуатация держится на знаниях 1-2 человек.
-- **Митигирование**: runbook-first подход, короткие операционные сценарии, evidence checklist для каждого релиза.
+### Risk 5: reliance on manual steps
+- **Symptom**: operations depend on one or two people’s tribal knowledge.
+- **Mitigation**: runbook-first approach, short operational scenarios, evidence checklist per release.
 
-## 4) План на 30 дней (Foundation)
+## 4) First 30 days (Foundation)
 
-### Цель
-Запустить стабильный базовый контур observability в тестовой среде AKS.
+### Goal
+Run a stable baseline observability ring in a test AKS environment.
 
-### Ключевые результаты
-- Завершен чистый deploy базовой инфраструктуры через Bicep.
-- Рабочий e2e путь для `service-a` и `service-b`.
-- Включены базовые дашборды и 2 ключевых алерта (CPU и error ratio).
-- Подготовлен и проверен `DEPLOYMENT_RUNBOOK` + `EVIDENCE`.
+### Key outcomes
+- Clean deploy of baseline infrastructure via Bicep completed.
+- Working e2e path for `service-a` and `service-b`.
+- Baseline dashboards and two key alerts (CPU and error ratio) enabled.
+- `DEPLOYMENT_RUNBOOK` + `EVIDENCE` prepared and verified.
 
-### Критерии готовности
-- Повторяемый deploy/cleanup без ручных "секретных" шагов.
-- Команда может воспроизвести сценарий по документации.
+### Definition of ready
+- Repeatable deploy/cleanup without hidden manual steps.
+- The team can reproduce the scenario from documentation.
 
-## 5) План на 60 дней (Standardization)
+## 5) Next 60 days (Standardization)
 
-### Цель
-Стандартизировать подключение новых сервисов и стабилизировать качество сигналов.
+### Goal
+Standardize how new services connect and stabilize signal quality.
 
-### Ключевые результаты
-- Введен telemetry contract для приложений (метрики/логи/трейсы/атрибуты).
-- Шаблоны dashboard/alert переиспользуются между сервисами.
-- CI-проверки observability добавлены в релизный поток.
-- Базовая модель triage-инцидентов синхронизирована с Action Group.
+### Key outcomes
+- Telemetry contract for apps (metrics/logs/traces/attributes).
+- Dashboard/alert templates reused across services.
+- Observability CI checks in the release path.
+- Basic incident triage model aligned with the Action Group.
 
-### Критерии готовности
-- Новый сервис подключается по шаблону за ограниченное время.
-- Алерты дают ясный следующий шаг и ссылку на контекст.
+### Definition of ready
+- A new service connects via template within a bounded time.
+- Alerts give a clear next step and link to context.
 
-## 6) План на 90 дней (Hardening)
+## 6) Next 90 days (Hardening)
 
-### Цель
-Подготовить платформу к production-сценариям и росту команд.
+### Goal
+Prepare the platform for production scenarios and team growth.
 
-### Ключевые результаты
-- Усилен security baseline (доступы, приватные сценарии, аудит изменений).
-- Введены SLO-ориентированные панели и регулярный health review.
-- Оптимизированы стоимость и retention стратегий телеметрии.
-- Формализован цикл postmortem и улучшений observability.
+### Key outcomes
+- Stronger security baseline (access, private scenarios, change audit).
+- SLO-oriented panels and regular health review.
+- Optimized telemetry cost and retention strategy.
+- Formal postmortem and observability improvement loop.
 
-### Критерии готовности
-- Платформа демонстрирует стабильную эксплуатацию при росте нагрузки.
-- Есть измеримый прогресс по MTTR/MTTD и качеству сигналов.
+### Definition of ready
+- Platform runs stably under growing load.
+- Measurable progress on MTTR/MTTD and signal quality.
 
-## 7) Управленческий ритм
+## 7) Management rhythm
 
-- Еженедельно: обзор алертов, noisy signals, статус KPI.
-- Раз в 2 недели: ревизия roadmap 30/60/90 и корректировка приоритетов.
-- Ежемесячно: архитектурный обзор (observability coverage, cost, reliability).
+- Weekly: alert review, noisy signals, KPI status.
+- Biweekly: revise 30/60/90 roadmap and priorities.
+- Monthly: architecture review (observability coverage, cost, reliability).
 
-## 8) Что считать успехом через 90 дней
+## 8) Success at 90 days
 
-- OmniScope используется как стандартный контур наблюдаемости для целевых сервисов.
-- Операционные решения принимаются на основе коррелированных данных, а не ручного поиска.
-- Документация, IaC и runtime-практики синхронизированы и воспроизводимы.
+- OmniScope is the standard observability path for target services.
+- Operational decisions use correlated data, not manual hunting.
+- Documentation, IaC, and runtime practices stay aligned and reproducible.

@@ -6,9 +6,14 @@ TypeScript program that mirrors [`infra/bicep/main.bicep`](../bicep/main.bicep):
 - Scheduled query alerts (CPU, container error ratio)
 - Optional Azure Monitor workspace + Managed Grafana
 - Optional Event Hub namespace, hub, and LAW data export tables
-- Optional AKS (VNet, system pool, overlay Azure CNI, Container Insights addon, deployer MSI + **AKS Contributor** for that identity only)
+- Optional AKS (VNet, system pool, overlay Azure CNI, Container Insights + **Azure Policy** + **Key Vault Secrets Provider** add-ons when enabled, deployer MSI + **AKS Contributor** for that identity only)
+- Optional Managed Grafana **Grafana Admin** role assignment when `omniscope:grafanaAdminObjectId` is set
 - Optional ACR (**Basic**) and kubelet **AcrPull** on that registry
 - Optional AKS control-plane **diagnostic settings** to LAW
+
+## One-shot deploy from repo root
+
+With `OMNISCOPE_IAC=pulumi` and `PULUMI_STACK` set in `.env.deploy`, [`scripts/deploy-project.sh`](../../scripts/deploy-project.sh) runs `pulumi up` in this directory, then builds images, applies Kubernetes manifests, and runs the smoke test — same as the Bicep path.
 
 ## Not in IaC here (difference from Bicep)
 
@@ -36,6 +41,9 @@ pulumi config set omniscope:alertEmail oncall@example.com --stack dev
 # pulumi config set omniscope:deployAks true
 # pulumi config set omniscope:deployAcr true
 # pulumi config set omniscope:deployAksDiagnostics true
+# pulumi config set omniscope:enableAzurePolicyAddon true --stack dev
+# pulumi config set omniscope:enableKeyVaultSecretsProvider true --stack dev
+# pulumi config set omniscope:grafanaAdminObjectId "<Entra object id>" --stack dev
 # pulumi config set omniscope:teamsWebhookUri 'https://...' --secret
 
 pulumi up --stack dev
